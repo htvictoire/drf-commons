@@ -38,6 +38,11 @@ from .person import (
     IdentityMixin,
 )
 
+# Custom fields
+from .fields import (
+    CurrentUserField,
+)
+
 __all__ = [
     # Base mixins and models
     'AbstractBaseModel',
@@ -54,4 +59,7 @@ __all__ = [
     'IdentityMixin',
     'AddressMixin',
     'BasePerson',
+    
+    # Custom fields
+    'CurrentUserField',
 ]

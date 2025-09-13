@@ -11,7 +11,7 @@ from rest_framework.request import Request
 from django.contrib.auth import get_user_model
 from django.db import models
 
-from common.current_user.middleware import get_current_authenticated_user
+from ..current_user.utils import get_current_authenticated_user
 
 User = get_user_model()
 

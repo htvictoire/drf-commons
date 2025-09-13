@@ -1,66 +1,64 @@
 """
-Debug utility functions and helpers.
+Debug utility functions with category awareness.
 """
 
 import json
 import pprint
 import traceback
-from .. import settings
 from django.db import connection
 from django.core.serializers.json import DjangoJSONEncoder
-from .logger import get_logger
+from common_conf import settings
+from .core.categories import Categories
 
 
-def debug_print(*args, **kwargs):
+def debug_print(*args, category=Categories.ERRORS, **kwargs):
     """
-    Print debug information only when DEBUG=True.
+    Print debug information if category is enabled.
     
     Args:
         *args: Arguments to print
+        category (str): Debug category to check (defaults to errors)
         **kwargs: Keyword arguments for print function
     """
-    if settings.DEBUG_ENABLED:
+    logger = Categories.get_logger('debug.print', category)
+    if logger is not Categories._null_logger:
         print("[DEBUG]", *args, **kwargs)
 
 
-def pretty_print_dict(data, title=None):
+def pretty_print_dict(data, title=None, category=Categories.ERRORS):
     """
     Pretty print dictionary or object for debugging.
     
     Args:
         data: Data to print
-        title (str): Optional title for the output
+        title (str, optional): Title for the output
+        category (str): Debug category to check (defaults to errors)
     """
-    if not settings.DEBUG_ENABLED:
+    logger = Categories.get_logger('debug.pretty_print', category)
+    if logger is Categories._null_logger:
         return
     
     if title:
         print(f"\n=== {title} ===")
     
     if isinstance(data, dict):
-        pprint.pprint(data, indent=2, width=120)
+        pprint.pprint(data, indent=settings.DEBUG_PRETTY_PRINT_INDENT, width=settings.DEBUG_PRETTY_PRINT_WIDTH)
     else:
         try:
-            # Try to convert to dict if it's a model instance
             if hasattr(data, '__dict__'):
-                pprint.pprint(data.__dict__, indent=2, width=120)
+                pprint.pprint(data.__dict__, indent=settings.DEBUG_PRETTY_PRINT_INDENT, width=settings.DEBUG_PRETTY_PRINT_WIDTH)
             else:
-                pprint.pprint(data, indent=2, width=120)
-        except:
+                pprint.pprint(data, indent=settings.DEBUG_PRETTY_PRINT_INDENT, width=settings.DEBUG_PRETTY_PRINT_WIDTH)
+        except Exception:
             print(str(data))
     
     if title:
-        print("=" * (len(title) + 8))
+        print("=" * (len(title) + settings.DEBUG_TITLE_BORDER_PADDING))
 
 
 def debug_sql_queries(reset=False):
-    """
-    Print all SQL queries executed so far.
-    
-    Args:
-        reset (bool): Whether to reset the query log after printing
-    """
-    if not settings.DEBUG_ENABLED:
+    """Print all SQL queries executed so far."""
+    if not Categories.is_enabled(Categories.DATABASE):
         return
     
     queries = connection.queries
@@ -76,7 +74,7 @@ def debug_sql_queries(reset=False):
         print(query['sql'])
     
     print(f"\nTotal time: {total_time:.4f}s")
-    print("=" * 40)
+    print("=" * settings.DEBUG_SQL_BORDER_LENGTH)
     
     if reset:
         connection.queries_log.clear()
@@ -85,12 +83,6 @@ def debug_sql_queries(reset=False):
 def capture_request_data(request):
     """
     Capture request data for debugging purposes.
-    
-    Args:
-        request: Django request object
-    
-    Returns:
-        dict: Request data summary
     """
     data = {
         'method': request.method,
@@ -103,17 +95,15 @@ def capture_request_data(request):
         'query_params': dict(request.GET),
     }
     
-    # Add POST data if present (be careful with sensitive data)
     if request.method == 'POST':
         data['post_data'] = dict(request.POST)
     
-    # Add headers (filter sensitive ones)
+    # Filter sensitive headers
     headers = {}
-    sensitive_headers = ['authorization', 'cookie', 'x-api-key']
     for key, value in request.META.items():
         if key.startswith('HTTP_'):
-            header_name = key[5:].lower()
-            if header_name not in sensitive_headers:
+            header_name = key[len('HTTP_'):].lower()
+            if header_name not in settings.DEBUG_SENSITIVE_HEADERS:
                 headers[header_name] = value
     data['headers'] = headers
     
@@ -123,12 +113,6 @@ def capture_request_data(request):
 def format_traceback(tb=None):
     """
     Format traceback for logging.
-    
-    Args:
-        tb: Traceback object (uses current if None)
-    
-    Returns:
-        str: Formatted traceback
     """
     if tb is None:
         return traceback.format_exc()
@@ -137,15 +121,8 @@ def format_traceback(tb=None):
 
 
 def log_model_changes(instance, action='unknown', user=None):
-    """
-    Log model instance changes for audit trail.
-    
-    Args:
-        instance: Model instance
-        action (str): Action performed (create, update, delete)
-        user: User performing the action
-    """
-    logger = get_logger('models.changes', 'models')
+    """Log model instance changes for audit trail."""
+    logger = Categories.get_logger(f'{Categories.MODELS}.changes', Categories.MODELS)
     
     model_name = instance.__class__.__name__
     instance_id = getattr(instance, 'pk', 'unknown')
@@ -156,7 +133,6 @@ def log_model_changes(instance, action='unknown', user=None):
     # Log field changes for updates
     if action == 'update' and hasattr(instance, '_state'):
         try:
-            # Get original values if available
             if hasattr(instance, '_original_values'):
                 changes = {}
                 for field in instance._meta.fields:
@@ -177,24 +153,18 @@ def log_model_changes(instance, action='unknown', user=None):
 
 
 def debug_cache_operations(cache_key, operation, result=None, duration=None):
-    """
-    Debug cache operations.
-    
-    Args:
-        cache_key (str): Cache key being operated on
-        operation (str): Operation type (get, set, delete, etc.)
-        result: Operation result
-        duration (float): Operation duration in seconds
-    """
-    logger = get_logger('cache.operations', 'cache')
+    """Debug cache operations."""
+    logger = Categories.get_logger(f'{Categories.CACHE}.operations', Categories.CACHE)
     
     message = f"Cache {operation.upper()}: {cache_key}"
     
     if result is not None:
         if operation == 'get':
-            message += f" - {'HIT' if result is not None else 'MISS'}"
+            message += " - HIT"
         else:
             message += f" - Success: {bool(result)}"
+    elif operation == 'get':
+        message += " - MISS"
     
     if duration:
         message += f" - Duration: {duration:.4f}s"
@@ -203,16 +173,8 @@ def debug_cache_operations(cache_key, operation, result=None, duration=None):
 
 
 def profile_function(func):
-    """
-    Profile a function's performance.
-    
-    Args:
-        func: Function to profile
-    
-    Returns:
-        tuple: (result, profile_stats)
-    """
-    if not settings.DEBUG_ENABLED:
+    """Profile a function's performance."""
+    if not Categories.is_enabled(Categories.PERFORMANCE):
         return func(), None
     
     try:
@@ -229,20 +191,17 @@ def profile_function(func):
         
         s = io.StringIO()
         ps = pstats.Stats(profiler, stream=s)
-        ps.sort_stats('cumulative')
-        ps.print_stats(10)  # Top 10 functions
+        ps.sort_stats(settings.DEBUG_PROFILER_SORT_METHOD)
+        ps.print_stats(settings.DEBUG_PROFILER_TOP_FUNCTIONS)
         
         return result, s.getvalue()
-    except ImportError:
-        return func(), "Profiling not available (cProfile not installed)"
+    except Exception as e:
+        return func(), f"Profiling failed: {e}"
 
 
 def memory_usage():
     """
     Get current memory usage information.
-    
-    Returns:
-        dict: Memory usage information
     """
     try:
         import psutil
@@ -252,8 +211,8 @@ def memory_usage():
         memory_info = process.memory_info()
         
         return {
-            'rss': memory_info.rss,  # Resident Set Size
-            'vms': memory_info.vms,  # Virtual Memory Size
+            'rss': memory_info.rss,
+            'vms': memory_info.vms,
             'percent': process.memory_percent(),
             'available': psutil.virtual_memory().available,
         }
@@ -262,39 +221,35 @@ def memory_usage():
 
 
 def analyze_queryset(queryset, name="QuerySet"):
-    """
-    Analyze a QuerySet for debugging.
-    
-    Args:
-        queryset: Django QuerySet to analyze
-        name (str): Name for logging purposes
-    """
-    logger = get_logger('queryset.analysis', 'database')
+    """Analyze a QuerySet for debugging."""
+    logger = Categories.get_logger('queryset.analysis', Categories.DATABASE)
     
     logger.info(f"Analyzing {name}:")
     logger.info(f"Query: {queryset.query}")
     logger.info(f"Count: {queryset.count()}")
     
-    if settings.DEBUG_ENABLED:
-        # Show first few items
+    # Show sample items if logger is active (category enabled)
+    if logger is not Categories._null_logger:
         try:
-            items = list(queryset[:5])
+            items = list(queryset[:settings.DEBUG_QUERYSET_SAMPLE_SIZE])
             logger.debug(f"Sample items ({len(items)}): {items}")
         except Exception as e:
             logger.warning(f"Could not fetch sample items: {e}")
 
 
-def debug_context_processor(request):
+def debug_context_processor(request, category=Categories.REQUESTS):
     """
     Django context processor to add debug information to templates.
     
     Args:
         request: Django request object
+        category (str): Debug category to check (defaults to requests)
     
     Returns:
         dict: Context variables for templates
     """
-    if not settings.DEBUG_ENABLED:
+    logger = Categories.get_logger('debug.context_processor', category)
+    if logger is Categories._null_logger:
         return {}
     
     return {

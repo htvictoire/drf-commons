@@ -1,40 +1,31 @@
 """
-Debug middleware for request/response logging and profiling.
+Debug middleware with category awareness.
 """
 
 import time
-import json
-from .. import settings
 from django.utils.deprecation import MiddlewareMixin
 from django.db import connection
-from .logger import get_logger
+from common_conf import settings
+from ..debug.core.categories import Categories
 
 
 class DebugMiddleware(MiddlewareMixin):
-    """
-    Middleware to log request/response details and performance metrics.
-    Only active when DEBUG=True.
-    """
+    """Request/response debugging middleware."""
     
     def __init__(self, get_response):
         super().__init__(get_response)
-        self.logger = get_logger('middleware.debug', 'requests')
+        self.logger = Categories.get_logger('middleware.debug', Categories.REQUESTS)
     
     def process_request(self, request):
         """Process incoming request."""
-        if not settings.DEBUG_ENABLED:
-            return None
-        
         request._debug_start_time = time.time()
         request._debug_initial_queries = len(connection.queries)
         
-        # Log request details
         self.logger.info(f"Request started: {request.method} {request.path}")
         self.logger.debug(f"User: {getattr(request.user, 'username', 'Anonymous') if hasattr(request, 'user') else 'Anonymous'}")
         self.logger.debug(f"User Agent: {request.META.get('HTTP_USER_AGENT', 'Unknown')}")
         self.logger.debug(f"Remote IP: {self.get_client_ip(request)}")
         
-        # Log query parameters
         if request.GET:
             self.logger.debug(f"Query params: {dict(request.GET)}")
         
@@ -42,14 +33,12 @@ class DebugMiddleware(MiddlewareMixin):
     
     def process_response(self, request, response):
         """Process outgoing response."""
-        if not settings.DEBUG_ENABLED or not hasattr(request, '_debug_start_time'):
+        if not hasattr(request, '_debug_start_time'):
             return response
         
-        # Calculate timing and query stats
         duration = time.time() - request._debug_start_time
         query_count = len(connection.queries) - request._debug_initial_queries
         
-        # Log response details
         self.logger.info(
             f"Request completed: {request.method} {request.path} - "
             f"Status: {response.status_code} - "
@@ -57,16 +46,14 @@ class DebugMiddleware(MiddlewareMixin):
             f"Queries: {query_count}"
         )
         
-        # Log slow requests
-        if duration > 1.0:  # Requests taking more than 1 second
+        if duration > settings.DEBUG_SLOW_REQUEST_THRESHOLD:
             self.logger.warning(f"Slow request detected: {duration:.4f}s for {request.path}")
         
-        # Log queries with high count
-        if query_count > 10:  # More than 10 database queries
+        if query_count > settings.DEBUG_HIGH_QUERY_COUNT_THRESHOLD:
             self.logger.warning(f"High query count: {query_count} queries for {request.path}")
         
-        # Add debug headers in development
-        if settings.DEBUG_ENABLED:
+        # Add debug headers only if logging is enabled (not null logger)
+        if self.logger is not Categories._null_logger:
             response['X-Debug-Duration'] = f"{duration:.4f}s"
             response['X-Debug-Queries'] = str(query_count)
         
@@ -74,7 +61,7 @@ class DebugMiddleware(MiddlewareMixin):
     
     def process_exception(self, request, exception):
         """Process unhandled exceptions."""
-        if not settings.DEBUG_ENABLED or not hasattr(request, '_debug_start_time'):
+        if not hasattr(request, '_debug_start_time'):
             return None
         
         duration = time.time() - request._debug_start_time
@@ -99,24 +86,20 @@ class DebugMiddleware(MiddlewareMixin):
 
 
 class SQLDebugMiddleware(MiddlewareMixin):
-    """
-    Middleware to log SQL queries in detail.
-    Only active when DEBUG=True.
-    """
+    """SQL query debugging middleware."""
     
     def __init__(self, get_response):
         super().__init__(get_response)
-        self.logger = get_logger('middleware.sql', 'sql')
+        self.logger = Categories.get_logger('middleware.sql', Categories.DATABASE)
     
     def process_request(self, request):
         """Reset query tracking."""
-        if settings.DEBUG_ENABLED:
-            request._sql_debug_initial_queries = len(connection.queries)
+        request._sql_debug_initial_queries = len(connection.queries)
         return None
     
     def process_response(self, request, response):
         """Log SQL queries for this request."""
-        if not settings.DEBUG_ENABLED or not hasattr(request, '_sql_debug_initial_queries'):
+        if not hasattr(request, '_sql_debug_initial_queries'):
             return response
         
         new_queries = connection.queries[request._sql_debug_initial_queries:]
@@ -129,31 +112,27 @@ class SQLDebugMiddleware(MiddlewareMixin):
                 f"total time: {total_time:.4f}s"
             )
             
-            # Log individual queries
             for i, query in enumerate(new_queries, 1):
                 self.logger.debug(
                     f"Query {i}: {query['sql']} "
                     f"(Time: {query['time']}s)"
                 )
             
-            # Log slow queries
-            slow_queries = [q for q in new_queries if float(q['time']) > 0.1]
+            slow_queries = [q for q in new_queries if float(q['time']) > settings.DEBUG_SLOW_QUERY_THRESHOLD]
             if slow_queries:
-                self.logger.warning(f"Slow queries detected: {len(slow_queries)} queries > 0.1s")
+                self.logger.warning(f"Slow queries detected: {len(slow_queries)} queries > {settings.DEBUG_SLOW_QUERY_THRESHOLD}s")
         
         return response
 
 
 class ProfilerMiddleware(MiddlewareMixin):
-    """
-    Middleware for profiling request performance.
-    Only active when DEBUG=True and ENABLE_PROFILER=True.
-    """
+    """Performance profiling middleware."""
     
     def __init__(self, get_response):
         super().__init__(get_response)
-        self.logger = get_logger('middleware.profiler', 'profiler')
-        self.enabled = settings.DEBUG_ENABLED and settings.ENABLE_PROFILER
+        self.logger = Categories.get_logger('middleware.profiler', Categories.PERFORMANCE)
+        self.enabled = (self.logger is not Categories._null_logger and 
+                       settings.ENABLE_PROFILER)
     
     def process_request(self, request):
         """Start profiling if enabled."""
@@ -182,8 +161,8 @@ class ProfilerMiddleware(MiddlewareMixin):
             
             s = io.StringIO()
             ps = pstats.Stats(request._profiler, stream=s)
-            ps.sort_stats('cumulative')
-            ps.print_stats(20)  # Top 20 functions
+            ps.sort_stats(settings.DEBUG_PROFILER_SORT_METHOD)
+            ps.print_stats(settings.DEBUG_PROFILER_TOP_FUNCTIONS)
             
             self.logger.info(f"Profiling results for {request.path}:")
             self.logger.info(s.getvalue())

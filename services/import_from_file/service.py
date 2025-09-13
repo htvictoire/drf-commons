@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional, Callable
 import pandas as pd
 from django.db import transaction
 from django.apps import apps
-from ... import settings
+from common_conf import settings
 
 from .config_validator import ConfigValidator
 from .file_reader import FileReader

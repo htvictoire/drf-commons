@@ -15,7 +15,7 @@ from django.db import models
 from django.forms.models import model_to_dict
 from django.utils import timezone
 
-from common.current_user.middleware import get_current_authenticated_user
+from ..current_user.utils import get_current_authenticated_user
 
 
 class UserActionMixin(models.Model):

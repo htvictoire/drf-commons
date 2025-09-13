@@ -1,12 +1,22 @@
+"""
+Custom model fields.
+"""
+
 import warnings
 
 from django.conf import settings as django_settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from current_user.middleware import get_current_authenticated_user
+from ..current_user.utils import get_current_authenticated_user
 
 
 class CurrentUserField(models.ForeignKey):
+    """
+    Model field that automatically sets the current user.
+    
+    This field automatically populates with the current authenticated user
+    when creating or updating model instances (if on_update=True).
+    """
 
     warning = ("You passed an argument to CurrentUserField that will be "
                "ignored. Avoid args and following kwargs: default, null, to.")
