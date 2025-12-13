@@ -7,7 +7,7 @@ It can be used as a complete package or individual sub-applications.
 Usage:
     # Use complete package (includes all sub-apps)
     INSTALLED_APPS = ['drf_common']
-    
+
     # Use individual sub-apps
     INSTALLED_APPS = [
         'drf_common.current_user',

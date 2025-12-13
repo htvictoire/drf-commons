@@ -213,3 +213,8 @@ secrets.json
 # Local configuration overrides
 local_settings.py
 settings_local.py
+
+
+#Dev
+todo.txt
+tocheck.txt

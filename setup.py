@@ -1,8 +1,10 @@
-from setuptools import setup, find_packages
 import os
+
+from setuptools import find_packages, setup
 
 # Read the contents of README file
 this_directory = os.path.abspath(os.path.dirname(__file__))
+
 
 # Get version from __init__.py
 def get_version():
@@ -10,6 +12,7 @@ def get_version():
     with open(os.path.join(this_directory, "drf_common", "__init__.py")) as f:
         exec(f.read(), version)
     return version.get("__version__", "1.0.0")
+
 
 setup(
     name="drf-common",
@@ -35,6 +38,9 @@ setup(
         "export": ["openpyxl", "reportlab"],
         "import": ["openpyxl", "pandas"],
         "all": ["openpyxl", "reportlab", "pandas"],
+        "dev": ["black==25.1.0", "flake8==7.3.0", "isort==6.0.1", "mypy==1.18.1"],
+        "test": ["pytest==8.4.2", "pytest-cov==7.0.0", "pytest-django==4.11.1"],
+        "build": ["twine==6.2.0"],
     },
     classifiers=[
         "Development Status :: 4 - Beta",

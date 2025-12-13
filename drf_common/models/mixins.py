@@ -1,0 +1,138 @@
+from django.conf import settings as django_settings
+from django.db import models
+from django.utils import timezone
+
+from drf_common.current_user.utils import get_current_authenticated_user
+from drf_common.utils.middleware_checker import require_middleware
+
+
+class UserActionMixin(models.Model):
+    """
+    Mixin that automatically tracks which user created and last updated a model instance.
+
+    Attributes:
+        created_by: ForeignKey to the user who created this instance
+        updated_by: ForeignKey to the user who last updated this instance
+    """
+
+    @require_middleware(
+        "drf_common.middlewares.current_user.CurrentUserMiddleware", "UserActionMixin"
+    )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    created_by = models.ForeignKey(
+        django_settings.AUTH_USER_MODEL,
+        related_name="created_%(class)s",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="User who created this record",
+    )
+    updated_by = models.ForeignKey(
+        django_settings.AUTH_USER_MODEL,
+        related_name="updated_%(class)s",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="User who last updated this record",
+    )
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs) -> None:
+        """
+        Override save method to automatically set created_by and updated_by fields.
+
+        Args:
+            *args: Variable length argument list
+            **kwargs: Arbitrary keyword arguments
+        """
+        self.set_created_by_and_updated_by()
+        return super().save(*args, **kwargs)
+
+    def set_created_by_and_updated_by(self) -> None:
+        """
+        Automatically set created_by and updated_by fields based on current authenticated user.
+
+        Sets created_by only if it's not already set (for new instances).
+        Always updates updated_by with current user.
+        """
+        current_user = get_current_authenticated_user()
+        if current_user and current_user.is_authenticated:
+            if not self.created_by:
+                self.created_by = current_user
+            self.updated_by = current_user
+
+
+class TimeStampMixin(models.Model):
+    """
+    Mixin that automatically adds creation and modification timestamps.
+
+    Attributes:
+        created_at: DateTime when the instance was created
+        updated_at: DateTime when the instance was last updated
+    """
+
+    created_at = models.DateTimeField(
+        auto_now_add=True, help_text="Date and time when this record was created"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True, help_text="Date and time when this record was last updated"
+    )
+
+    class Meta:
+        abstract = True
+
+
+class SoftDeleteMixin(models.Model):
+    """
+    Mixin that provides soft delete functionality.
+
+    Instead of permanently deleting records from the database, this mixin
+    marks them as deleted by setting the deleted_at timestamp.
+
+    Attributes:
+        deleted_at: DateTime when the record was soft deleted (None if not deleted)
+        is_deleted: Property to check if the record is soft deleted
+    """
+
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date and time when this record was soft deleted",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Indicates whether this record is active (not soft deleted)",
+    )
+
+    class Meta:
+        abstract = True
+
+    def soft_delete(self) -> None:
+        """
+        Soft delete this instance by setting deleted_at to current timestamp.
+        """
+        self.deleted_at = timezone.now()
+        self.is_active = False
+        self.save(update_fields=["deleted_at", "is_active"])
+
+    def restore(self) -> None:
+        """
+        Restore a soft deleted instance by clearing the deleted_at field.
+        """
+        self.deleted_at = None
+        self.is_active = True
+        self.save(update_fields=["deleted_at", "is_active"])
+
+    @property
+    def is_deleted(self) -> bool:
+        """
+        Check if this instance is soft deleted.
+
+        Returns:
+            True if the instance is soft deleted, False otherwise
+        """
+        return not self.is_active
