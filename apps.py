@@ -3,8 +3,8 @@ from django.apps import AppConfig
 
 class DrfCommonConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "drf_common"
-    verbose_name = "DRF Common - Complete Package"
+    name = "drf_commons"
+    verbose_name = "DRF Commons - Complete Package"
 
     def ready(self):
         """Register all sub-apps when using the complete package."""
@@ -12,13 +12,13 @@ class DrfCommonConfig(AppConfig):
 
         # Sub-apps to auto-register
         sub_apps = [
-            "drf_common.current_user",
-            "drf_common.debug",
-            "drf_common.filters",
-            "drf_common.pagination",
-            "drf_common.response",
-            "drf_common.serializers",
-            "drf_common.views",
+            "drf_commons.current_user",
+            "drf_commons.debug",
+            "drf_commons.filters",
+            "drf_commons.pagination",
+            "drf_commons.response",
+            "drf_commons.serializers",
+            "drf_commons.views",
         ]
 
         # Only register sub-apps that aren't already in INSTALLED_APPS

@@ -1,0 +1,198 @@
+{% load dict_extras %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @page { 
+            size: A4 {{ orientation }};
+            margin: {{ default_margin }}pt {{ table_margin }}pt;
+        }
+        
+        body {
+            font-family: 'Helvetica', sans-serif;
+            font-size: {{ default_font_size }}pt;
+            line-height: 1.2;
+            color: #{{ text_color }};
+        }
+        
+        /* Header styles */
+        .document-headers {
+            margin-bottom: {{ header_to_title_spacing }}pt;
+        }
+        
+        .document-header {
+            font-size: {{ header_font_size }}pt;
+            font-weight: bold;
+            margin: 0;
+            line-height: 1.2;
+        }
+        
+        /* Title styles */
+        .document-titles {
+            text-align: center;
+            margin-bottom: {{ title_to_table_spacing }}pt;
+        }
+        
+        .document-title {
+            font-size: {{ title_font_size }}pt;
+            font-weight: bold;
+            margin: 0;
+            line-height: 1.2;
+        }
+        
+        /* Table styles */
+        table {
+            width: 100%;
+            table-layout: auto; /* Let browser calculate optimal column widths */
+            border-collapse: collapse;
+            margin: 0;
+        }
+        
+        th {
+            background-color: #{{ header_color }};
+            color: white;
+            font-size: {{ header_font_size }}pt;
+            font-weight: bold;
+            padding: {{ header_padding_v }}pt {{ header_padding_h }}pt;
+            border: 1px solid #{{ border_color }};
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        td {
+            font-size: {{ default_font_size }}pt;
+            padding: {{ cell_padding }}pt;
+            border: 1px solid #{{ border_color }};
+            vertical-align: top;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        /* Row height control - only font size and row height */
+        {% if row_height > 0 %}
+        thead tr {
+            height: {{ row_height }}pt;
+        }
+        
+        tbody tr {
+            height: {{ row_height }}pt;
+        }
+        {% endif %}
+        
+        /* Column type classes for better width handling */
+        .col-index, .col-id, .col-number {
+            white-space: nowrap;
+            width: 1%;
+            text-align: center;
+        }
+        
+        .col-status, .col-state, .col-active, .col-bool {
+            white-space: nowrap;
+            width: 1%;
+            text-align: center;
+        }
+        
+        .col-date, .col-time, .col-datetime {
+            white-space: nowrap;
+            width: 120pt;
+            text-align: center;
+        }
+        
+        .col-name, .col-title, .col-email {
+            width: auto;
+            min-width: 100pt;
+        }
+        
+        .col-description, .col-content, .col-text, .col-comment, .col-notes {
+            width: auto;
+            min-width: 150pt;
+        }
+        
+        /* Alignment classes */
+        .align-left { text-align: left; }
+        .align-center { text-align: center; }
+        .align-right { text-align: right; }
+        
+        /* Footer */
+        .footer {
+            position: fixed;
+            bottom: 20pt;
+            right: 0;
+            font-size: 10pt;
+            font-style: italic;
+        }
+        
+        /* Alternating row colors */
+        tbody tr:nth-child(even) {
+            background-color: #{{ alternate_row_color }};
+        }
+        
+        /* No data message */
+        .no-data {
+            text-align: center;
+            font-style: italic;
+            padding: 40pt;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <!-- Document Headers (top left - company info + common values) -->
+    {% if export_headers %}
+    <div class="document-headers">
+        {% for header_line in export_headers %}
+            {% if header_line %}
+            <p class="document-header">{{ header_line }}</p>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Document Titles (centered above table) -->
+    {% if document_titles %}
+    <div class="document-titles">
+        {% for title in document_titles %}
+            {% if title %}
+            <h1 class="document-title">{{ title }}</h1>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Main Table -->
+    {% if data_rows %}
+    <table>
+        <thead>
+            <tr>
+                {% for field_name in includes %}
+                <th class="col-{{ field_name|lower|cut:'_' }} align-{{ column_alignments|get_item:field_name|default:'left' }}">
+                    {{ column_labels|get_item:field_name|default:field_name }}
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data_rows %}
+            <tr>
+                {% for field_name in includes %}
+                <td class="col-{{ field_name|lower|cut:'_' }} align-{{ column_alignments|get_item:field_name|default:'left' }}">
+                    {% with value=row|get_item:field_name %}
+                        {{ value|default:'' }}
+                    {% endwith %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="no-data">No data to export.</div>
+    {% endif %}
+    
+    <!-- Footer -->
+    <div class="footer">
+        Date: {{ working_date }}
+    </div>
+</body>
+</html>

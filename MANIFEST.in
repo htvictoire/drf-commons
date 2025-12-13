@@ -1,0 +1,27 @@
+# Include documentation
+include README.md
+include LICENSE
+include requirements.txt
+
+# Include configuration files
+include pyproject.toml
+include setup.py
+include .flake8
+
+# Include all package data
+recursive-include drf_commons *.py
+recursive-include drf_commons/templates *
+recursive-include drf_commons/static *
+
+# Exclude unnecessary files
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * .DS_Store
+recursive-exclude * *.so
+recursive-exclude * *.dylib
+exclude .coverage
+exclude htmlcov
+exclude .gitignore
+recursive-exclude tests *
+recursive-exclude htmlcov *
+recursive-exclude .pytest_cache *

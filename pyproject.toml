@@ -1,3 +1,72 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drf-commons"
+version = "1.0.0"
+authors = [
+    {name = "Victoire HABAMUNGU", email = "contact@htvictoire.me"}
+]
+description = "Django REST Framework Common Utilities - Modular apps for enhanced DRF functionality"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+keywords = ["django", "rest-framework", "drf", "utilities", "api"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: Django",
+    "Framework :: Django :: 3.2",
+    "Framework :: Django :: 4.0",
+    "Framework :: Django :: 4.1",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+]
+dependencies = [
+    "Django>=3.2",
+    "djangorestframework>=3.12",
+]
+
+[project.optional-dependencies]
+current_user = []
+debug = []
+filters = []
+pagination = []
+response = []
+serializers = []
+views = []
+export = ["openpyxl>=3.0", "weasyprint>=60.0"]
+import = ["openpyxl>=3.0", "pandas>=1.3"]
+config = ["django-constance>=2.9"]
+all = ["openpyxl>=3.0", "weasyprint>=60.0", "pandas>=1.3", "django-constance>=2.9"]
+dev = ["black==25.1.0", "flake8==7.3.0", "isort==6.0.1", "mypy==1.18.1"]
+test = ["pytest==8.4.2", "pytest-cov==7.0.0", "pytest-django==4.11.1", "factory-boy>=3.3"]
+build = ["build>=1.0", "twine>=6.0"]
+
+[project.urls]
+Homepage = "https://github.com/htvictoire/drf-common"
+Repository = "https://github.com/htvictoire/drf-common"
+Issues = "https://github.com/htvictoire/drf-common/issues"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["drf_commons*"]
+exclude = ["tests*", "venv*", "htmlcov*"]
+
 [tool.black]
 line-length = 88
 target-version = ['py38']
@@ -53,3 +122,9 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = "*.tests.*"
 disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "drf_commons.common_conf.test_settings"
+python_files = ["test_*.py", "*_test.py"]
+testpaths = ["drf_commons"]
+addopts = "--strict-markers --tb=short"

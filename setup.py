@@ -9,13 +9,13 @@ this_directory = os.path.abspath(os.path.dirname(__file__))
 # Get version from __init__.py
 def get_version():
     version = {}
-    with open(os.path.join(this_directory, "drf_common", "__init__.py")) as f:
+    with open(os.path.join(this_directory, "drf_commons", "__init__.py")) as f:
         exec(f.read(), version)
     return version.get("__version__", "1.0.0")
 
 
 setup(
-    name="drf-common",
+    name="drf-commons",
     version=get_version(),
     author="Victoire HABAMUNGU",
     description="Django REST Framework Common Utilities - Modular apps for enhanced DRF functionality",
@@ -35,12 +35,13 @@ setup(
         "response": [],
         "serializers": [],
         "views": [],
-        "export": ["openpyxl", "reportlab"],
-        "import": ["openpyxl", "pandas"],
-        "all": ["openpyxl", "reportlab", "pandas"],
+        "export": ["openpyxl>=3.0", "weasyprint>=60.0"],
+        "import": ["openpyxl>=3.0", "pandas>=1.3"],
+        "config": ["django-constance>=2.9"],
+        "all": ["openpyxl>=3.0", "weasyprint>=60.0", "pandas>=1.3", "django-constance>=2.9"],
         "dev": ["black==25.1.0", "flake8==7.3.0", "isort==6.0.1", "mypy==1.18.1"],
-        "test": ["pytest==8.4.2", "pytest-cov==7.0.0", "pytest-django==4.11.1"],
-        "build": ["twine==6.2.0"],
+        "test": ["pytest==8.4.2", "pytest-cov==7.0.0", "pytest-django==4.11.1", "factory-boy>=3.3"],
+        "build": ["build>=1.0", "twine>=6.0"],
     },
     classifiers=[
         "Development Status :: 4 - Beta",

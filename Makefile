@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean lint format sort-imports type-check quality test test-verbose coverage build upload clean-build clean-pyc clean-test all check
+.PHONY: help install install-dev clean lint format sort-imports type-check quality test test-verbose coverage build upload upload-test publish publish-test clean-build clean-pyc clean-test all check
 
 # Default target
 help:
@@ -26,6 +26,8 @@ help:
 	@echo "  build         Build distribution packages"
 	@echo "  upload        Upload to PyPI (requires credentials)"
 	@echo "  upload-test   Upload to TestPyPI (requires credentials)"
+	@echo "  publish       Alias for upload"
+	@echo "  publish-test  Clean, build, and publish to TestPyPI"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  clean-build   Clean build artifacts"
@@ -78,19 +80,19 @@ test:
 			PACKAGE_PATH=$$(echo "$$BASE_PATH" | sed 's/\/test_.*//' ); \
 			TEST_FILE=$$(echo "$$BASE_PATH" | sed 's/.*\///' ); \
 			if [ -f "$$PACKAGE_PATH/tests/$$TEST_FILE.py" ]; then \
-				DJANGO_SETTINGS_MODULE=drf_common.common_conf.django_settings python -m pytest "$$PACKAGE_PATH/tests/$$TEST_FILE.py"; \
+				DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest "$$PACKAGE_PATH/tests/$$TEST_FILE.py"; \
 			else \
 				echo "Error: $$PACKAGE_PATH/tests/$$TEST_FILE.py not found"; exit 1; \
 			fi; \
 		elif [ -d "$$BASE_PATH/tests" ] && [ -n "$$(find "$$BASE_PATH/tests" -name "test_*.py" -o -name "*_test.py" | head -1)" ]; then \
-			DJANGO_SETTINGS_MODULE=drf_common.common_conf.django_settings python -m pytest "$$BASE_PATH/"; \
+			DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest "$$BASE_PATH/"; \
 		elif [ -d "$$BASE_PATH" ]; then \
-			DJANGO_SETTINGS_MODULE=drf_common.common_conf.django_settings python -m pytest "$$BASE_PATH/"; \
+			DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest "$$BASE_PATH/"; \
 		else \
 			echo "Error: $$BASE_PATH not found"; exit 1; \
 		fi; \
 	else \
-		DJANGO_SETTINGS_MODULE=drf_common.common_conf.django_settings python -m pytest; \
+		DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest; \
 	fi
 	@echo "✓ Tests passed"
 
@@ -99,12 +101,12 @@ test:
 
 test-verbose:
 	@echo "Running tests with verbose output..."
-	DJANGO_SETTINGS_MODULE=drf_common.common_conf.django_settings python -m pytest -v
+	DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest -v
 	@echo "✓ Tests passed"
 
 coverage:
 	@echo "Running tests with coverage..."
-	DJANGO_SETTINGS_MODULE=drf_common.common_conf.django_settings python -m pytest --cov=drf_common --cov-report=html --cov-report=term
+	DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest --cov=drf_commons --cov-report=html --cov-report=term
 	@echo "✓ Coverage report generated"
 
 # Build & Release
@@ -122,6 +124,18 @@ upload-test: build
 	@echo "Uploading to TestPyPI..."
 	twine upload --repository testpypi dist/*
 	@echo "✓ Uploaded to TestPyPI"
+
+# Aliases for publishing
+publish: upload
+	@echo "✓ Published to PyPI"
+
+publish-test: clean-build
+	@echo "Cleaning build artifacts..."
+	@echo "Building distribution packages..."
+	python -m build
+	@echo "Uploading to TestPyPI..."
+	twine upload --repository testpypi dist/*
+	@echo "✓ Published to TestPyPI"
 
 # Cleaning
 clean-build:
