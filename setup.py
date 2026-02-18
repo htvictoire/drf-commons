@@ -11,15 +11,15 @@ def get_version():
     version = {}
     with open(os.path.join(this_directory, "drf_commons", "__init__.py")) as f:
         exec(f.read(), version)
-    return version.get("__version__", "1.0.0")
+    return version.get("__version__", "1.0.1")
 
 
 setup(
     name="drf-commons",
     version=get_version(),
     author="Victoire HABAMUNGU",
-    description="Django REST Framework Common Utilities - Modular apps for enhanced DRF functionality",
-    long_description="A collection of reusable Django REST Framework utilities that can be used as standalone apps or as a complete package.",
+    description="Django REST Framework Common Utilities for production APIs",
+    long_description="A collection of reusable Django REST Framework utilities with a single Django app entrypoint.",
     long_description_content_type="text/plain",
     packages=find_packages(),
     include_package_data=True,
@@ -28,20 +28,13 @@ setup(
         "djangorestframework>=3.12",
     ],
     extras_require={
-        "current_user": [],
-        "debug": [],
-        "filters": [],
-        "pagination": [],
-        "response": [],
-        "serializers": [],
-        "views": [],
         "export": ["openpyxl>=3.0", "weasyprint>=60.0"],
         "import": ["openpyxl>=3.0", "pandas>=1.3"],
-        "config": ["django-constance>=2.9"],
-        "all": ["openpyxl>=3.0", "weasyprint>=60.0", "pandas>=1.3", "django-constance>=2.9"],
+        "debug": ["psutil>=5.9"],
         "dev": ["black==25.1.0", "flake8==7.3.0", "isort==6.0.1", "mypy==1.18.1"],
         "test": ["pytest==8.4.2", "pytest-cov==7.0.0", "pytest-django==4.11.1", "factory-boy>=3.3"],
         "build": ["build>=1.0", "twine>=6.0"],
+        "docs": ["sphinx>=8.1", "furo>=2024.8.6"],
     },
     classifiers=[
         "Development Status :: 4 - Beta",

@@ -1,161 +1,122 @@
-# DRF Commons
+# drf-commons
 
-> **⚠️ UNDER DEVELOPMENT**: This library is currently under active development. APIs may change, and some features may not be fully stable yet.
+Production-grade utilities that fix structural limitations in Django REST Framework.
 
-A comprehensive collection of reusable Django REST Framework utilities and components designed to accelerate API development.
+## Why this exists
+
+Django REST Framework is powerful, but large production APIs repeatedly hit the same friction points:
+
+- repetitive serializer and view logic
+- inconsistent error and success payload structures
+- no shared response envelope contract across teams
+- recurring boilerplate for bulk operations and import/export workflows
+- ad-hoc observability patterns that drift over time
+
+`drf-commons` addresses these with reusable abstractions that standardize behavior while staying compatible with DRF's architecture.
 
 ## Features
 
-### Core Modules
-
-- **Current User**: Middleware and utilities for accessing the current user context
-- **Debug**: Advanced logging and debugging tools with categorized loggers
-- **Decorators**: Performance monitoring, caching, database optimization, and logging decorators
-- **Filters**: Enhanced filtering and ordering capabilities including computed fields
-- **Middlewares**: Current user tracking and debug middleware
-- **Models**: Base models, mixins, and custom fields for common patterns
-- **Pagination**: Flexible pagination classes
-- **Response**: Standardized API response utilities
-- **Serializers**: Enhanced serializers with custom fields and mixins
-- **Views**: ViewSet mixins for CRUD, bulk operations, and import/export
-
-### Services
-
-- **Export File**: Export data to CSV, XLSX, and PDF formats
-- **Import from File**: Robust file import with validation and bulk operations
+- composable CRUD and bulk view mixins for consistent endpoint behavior
+- configurable related-field serializer system for complex relation IO contracts
+- standardized API response helpers (`success_response`, `error_response`, `validation_error_response`)
+- reusable base serializers with bulk-update support (`BaseModelSerializer`, `BulkUpdateListSerializer`)
+- file import pipeline with validation, transforms, lookup resolution, and batch persistence
+- file export pipeline for CSV/XLSX/PDF with configurable column metadata
+- current-user context propagation for model-level actor attribution
+- category-aware debug/logging utilities for production observability
 
 ## Installation
 
-Install the base package:
+Base package:
 
 ```bash
 pip install drf-commons
 ```
 
-Install with specific features:
+Optional extras:
 
 ```bash
-# For export functionality (XLSX and PDF)
+# XLSX/PDF export
 pip install drf-commons[export]
 
-# For import functionality
+# file import pipeline
 pip install drf-commons[import]
-
-# For dynamic configuration
-pip install drf-commons[config]
-
-# For all features
-pip install drf-commons[all]
-
-# For development
-pip install drf-commons[dev,test]
 ```
 
-## Quick Start
-
-### 1. Add to INSTALLED_APPS
+Configure Django:
 
 ```python
 INSTALLED_APPS = [
-    # ... your apps
-    'drf_commons.current_user',
-    'drf_commons.debug',
-    'drf_commons.filters',
-    'drf_commons.pagination',
-    'drf_commons.response',
-    'drf_commons.serializers',
-    'drf_commons.views',
+    "drf_commons",
 ]
 ```
 
-### 2. Add Middleware (Optional)
+## Example
+
+Before:
 
 ```python
-MIDDLEWARE = [
-    # ... other middleware
-    'drf_commons.middlewares.current_user.CurrentUserMiddleware',
-    'drf_commons.middlewares.debug.DebugMiddleware',
-]
+from rest_framework import status, viewsets
+from rest_framework.response import Response
+
+class IncidentViewSet(viewsets.ModelViewSet):
+    queryset = Incident.objects.all()
+    serializer_class = IncidentSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(
+            {
+                "ok": True,
+                "message": "Incident created",
+                "result": serializer.data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 ```
 
-### 3. Use in Your Code
+After:
 
 ```python
 from drf_commons.views.base import BaseViewSet
-from drf_commons.serializers.base import BaseSerializer
-from drf_commons.models.base import BaseModel
-from drf_commons.pagination.base import CustomPageNumberPagination
 
-class MyModel(BaseModel):
-    # Your model fields
-    pass
+class IncidentViewSet(BaseViewSet):
+    queryset = Incident.objects.all()
+    serializer_class = IncidentSerializer
+    return_data_on_create = True
 
-class MySerializer(BaseSerializer):
-    class Meta:
-        model = MyModel
-        fields = '__all__'
+    def on_create_message(self):
+        return "Incident created"
 
-class MyViewSet(BaseViewSet):
-    queryset = MyModel.objects.all()
-    serializer_class = MySerializer
-    pagination_class = CustomPageNumberPagination
+    # `create` is inherited and returns standardized envelope via success_response.
 ```
 
-## Usage Examples
+## Architecture
 
-### Export Data
+Simple model:
 
-```python
-from drf_commons.services import ExportService
+- **Presentation layer**: DRF view mixins and response helpers standardize endpoint contracts.
+- **Serialization layer**: base serializers and configurable relation fields reduce repeated IO logic.
+- **Domain model layer**: model mixins add reusable timestamp/user/soft-delete/version patterns.
+- **Service layer**: import/export workflows handle file processing, validation, and persistence orchestration.
+- **Observability layer**: debug middleware, decorators, and category-gated logging provide operational visibility.
 
-service = ExportService()
+The library ships as one Django app with composable modules.
 
-# Export to CSV (no optional dependencies required)
-response = service.export_csv(
-    data_rows=data,
-    includes=['id', 'name', 'created_at'],
-    column_config={},
-    filename='export.csv',
-    export_headers=[],
-    document_titles=[]
-)
+## Production usage
 
-# Export to XLSX (requires openpyxl)
-response = service.export_xlsx(...)
+Built for and used in real production systems where API consistency, maintainability, and operational control are mandatory.
 
-# Export to PDF (requires weasyprint)
-response = service.export_pdf(...)
-```
+## Documentation
 
-### Import Data
+- Full technical docs: `docs/`
+- API reference is generated from source modules under `drf_commons`
+- Local docs build:
 
-```python
-from drf_commons.services import FileImportService
-
-config = {
-    'model': MyModel,
-    'fields': {
-        'name': {'required': True},
-        'email': {'required': True, 'unique': True},
-    }
-}
-
-service = FileImportService(config)
-result = service.import_file(file_path)
-```
-
-### Use Decorators
-
-```python
-from drf_commons.decorators.performance import measure_performance
-from drf_commons.decorators.cache import cached_method
-
-class MyViewSet(BaseViewSet):
-    @measure_performance
-    @cached_method(timeout=300)
-    def expensive_operation(self):
-        # Your expensive operation
-        pass
+```bash
+make -C docs html
 ```
 
 ## Requirements
@@ -164,89 +125,6 @@ class MyViewSet(BaseViewSet):
 - Django >= 3.2
 - djangorestframework >= 3.12
 
-## Optional Dependencies
-
-Different features require different dependencies:
-
-### Core Package (No optional dependencies)
-
-The base installation includes:
-
-- Models, Serializers, Views, Pagination, Response utilities
-- CSV export (no additional dependencies required)
-- Filters, Decorators, Middleware
-
-### File Export (`[export]`)
-
-For XLSX and PDF export functionality:
-
-- `openpyxl >= 3.0` - Excel (XLSX) export
-- `weasyprint >= 60.0` - PDF export
-
-### File Import (`[import]`)
-
-For importing data from CSV and Excel files:
-
-- `pandas >= 1.3` - Data processing and file parsing
-- `openpyxl >= 3.0` - Excel file reading
-
-### Dynamic Configuration (`[config]`)
-
-For runtime configuration management:
-
-- `django-constance >= 2.9` - Dynamic Django settings
-
-## Development
-
-### Setup Development Environment
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/drf-common.git
-cd drf-common
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install in development mode with all dependencies
-pip install -e .[dev,test,all]
-```
-
-### Run Tests
-
-```bash
-pytest
-```
-
-### Code Quality
-
-```bash
-# Format code
-black .
-
-# Sort imports
-isort .
-
-# Lint
-flake8
-
-# Type checking
-mypy drf_commons
-```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ## License
 
-This project is licensed under the MIT License.
-
-## Author
-
-Victoire HABAMUNGU
-
-## Support
-
-For issues and questions, please use the GitHub issue tracker.
+MIT

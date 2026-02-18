@@ -8,6 +8,8 @@ from typing import Any, Dict, Optional
 from django.apps import apps
 from django.db.models import Model
 
+from ..core.exceptions import ImportValidationError
+
 try:
     import pandas as pd
 except ImportError as e:
@@ -55,24 +57,15 @@ class LookupManager:
             model_path, field = key.split("__", 1)
             model = self._get_model(model_path)
 
-            # Check if the field is a database field or a property/attribute
-            if self._is_model_field(model, field):
-                # Database field - use ORM filtering
-                q = {f"{field}__in": list(values)}
-                qs = model.objects.filter(**q)
-                map_ = {getattr(obj, field): obj for obj in qs}
-            else:
-                # Property/attribute - fetch all objects and filter in Python
-                qs = model.objects.all()
-                map_ = {}
-                for obj in qs:
-                    try:
-                        attr_value = getattr(obj, field)
-                        if attr_value in values:
-                            map_[attr_value] = obj
-                    except AttributeError:
-                        # Attribute doesn't exist on this object
-                        continue
+            if not self._is_model_field(model, field):
+                raise ImportValidationError(
+                    f"Lookup field '{field}' must be a database field on model '{model_path}'"
+                )
+
+            # Database field - use ORM filtering
+            q = {f"{field}__in": list(values)}
+            qs = model.objects.filter(**q)
+            map_ = {getattr(obj, field): obj for obj in qs}
 
             caches[key] = map_
         return caches

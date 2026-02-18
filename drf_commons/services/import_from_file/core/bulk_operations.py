@@ -76,7 +76,8 @@ class BulkOperations:
 
         # Try bulk create with savepoint
         try:
-            with transaction.savepoint():
+            # Use a nested atomic block to create an internal savepoint.
+            with transaction.atomic():
                 for i in range(0, len(instances), self.batch_size):
                     batch = instances[i : i + self.batch_size]
                     batch_indices = indices[i : i + self.batch_size]
@@ -90,9 +91,9 @@ class BulkOperations:
                         created_objs[idx][step_key] = obj
 
                     created.extend(created_batch)
-                logger.debug(
-                    "Bulk created %d %s instances", len(created), model_cls.__name__
-                )
+            logger.debug(
+                "Bulk created %d %s instances", len(created), model_cls.__name__
+            )
         except Exception as e:
             logger.warning(
                 "Bulk create failed for %s, falling back to individual creates: %s",
@@ -133,34 +134,50 @@ class BulkOperations:
         return save_errors
 
     def bulk_update_instances(
-        self, model_cls, to_update: List[Model], update_fields: Set[str]
-    ) -> None:
-        """Bulk update model instances with fallback to individual saves."""
-        if not to_update:
-            return
+        self, model_cls, to_update: List[Tuple[int, Model]], update_fields: Set[str]
+    ) -> Dict[int, str]:
+        """Bulk update model instances with fallback to individual saves.
+
+        Returns:
+            Dict mapping row_idx to error message for failed saves.
+        """
+        if not to_update or not update_fields:
+            return {}
+
+        row_indices, instances = zip(*to_update)
 
         try:
             model_cls.objects.bulk_update(
-                to_update, list(update_fields), batch_size=self.batch_size
+                list(instances), list(update_fields), batch_size=self.batch_size
             )
             logger.debug(
                 "Bulk updated %d %s instances", len(to_update), model_cls.__name__
             )
+            return {}
         except Exception as e:
             logger.warning(
                 "Bulk update failed for %s, falling back to individual saves: %s",
                 model_cls.__name__,
                 str(e),
             )
-            for obj in to_update:
+
+            save_errors = {}
+            for row_idx, obj in zip(row_indices, instances):
                 try:
                     obj.save(update_fields=list(update_fields))
                 except Exception as save_error:
+                    error_msg = (
+                        f"Failed to update {model_cls.__name__}: {str(save_error)}"
+                    )
                     logger.error(
-                        "Failed to save individual %s instance: %s",
+                        "Failed to save individual %s instance at row %d: %s",
                         model_cls.__name__,
+                        row_idx,
                         save_error,
                     )
+                    save_errors[row_idx] = error_msg
+
+            return save_errors
 
     def apply_updates(self, obj: Model, kwargs: Dict[str, Any]) -> None:
         """Apply field updates to existing model instance."""

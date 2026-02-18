@@ -161,7 +161,7 @@ class DataManagementE2ETests(APITestCase):
             {"id": bulk_users[0]['id'], "last_name": "BulkUpdated1"},
             {"id": bulk_users[1]['id'], "last_name": "BulkUpdated2"}
         ]
-        bulk_update_response = self.client.put('/api/users/bulk-update/', bulk_update_data, format='json')
+        bulk_update_response = self.client.patch('/api/users/bulk-update/', bulk_update_data, format='json')
         self.assertEqual(bulk_update_response.status_code, 200)
 
         # Step 8: Verify bulk updates

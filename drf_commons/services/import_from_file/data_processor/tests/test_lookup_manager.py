@@ -6,9 +6,12 @@ Tests lookup management functionality.
 
 
 import pandas as pd
+from django.contrib.auth import get_user_model
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
+from drf_commons.common_tests.factories import UserFactory
 
+from ...core.exceptions import ImportValidationError
 from ..lookup_manager import LookupManager
 
 
@@ -56,3 +59,23 @@ class LookupManagerTests(DrfCommonTestCase):
         result = manager.collect_lookup_values(df)
 
         self.assertIsInstance(result, dict)
+
+    def test_prefetch_lookups_raises_for_non_model_lookup_field(self):
+        """Lookup prefetch rejects non-database lookup fields."""
+        manager = LookupManager(self.config)
+        lookup_values = {"auth.User__get_full_name": {"alice"}}
+
+        with self.assertRaises(ImportValidationError):
+            manager.prefetch_lookups(lookup_values)
+
+    def test_prefetch_lookups_uses_database_field_filtering(self):
+        """Lookup prefetch should use ORM field filtering for model fields."""
+        User = get_user_model()
+        user = UserFactory(username="lookup_user")
+
+        manager = LookupManager(self.config)
+        lookup_values = {"auth.User__username": {"lookup_user"}}
+        caches = manager.prefetch_lookups(lookup_values)
+
+        self.assertIn("auth.User__username", caches)
+        self.assertEqual(caches["auth.User__username"]["lookup_user"].pk, user.pk)

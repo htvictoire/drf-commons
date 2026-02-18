@@ -3,13 +3,13 @@ Debug utility functions with category awareness.
 """
 
 import cProfile
+import importlib
 import io
 import json
 import os
 import pprint
 import pstats
 import traceback
-import psutil
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import connection
@@ -218,6 +218,14 @@ def memory_usage():
     """
     Get current memory usage information.
     """
+    try:
+        psutil = importlib.import_module("psutil")
+    except ImportError as e:
+        raise ImportError(
+            "Debug memory utilities require psutil. "
+            "Install it with: pip install drf-commons[debug]"
+        ) from e
+
     process = psutil.Process(os.getpid())
     memory_info = process.memory_info()
 

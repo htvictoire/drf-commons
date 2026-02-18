@@ -140,6 +140,16 @@ class FileImportService:
             for i in range(total_rows)
         ]
 
+        def set_row_status(row_idx: int, status: str) -> None:
+            """Set row status without overriding failed rows."""
+            if results_per_row[row_idx]["status"] != "failed":
+                results_per_row[row_idx]["status"] = status
+
+        def mark_row_failed(row_idx: int, error_message: str) -> None:
+            """Mark row as failed and append error details."""
+            results_per_row[row_idx]["status"] = "failed"
+            results_per_row[row_idx]["errors"].append(error_message)
+
         # Prefetch lookup candidates
         lookup_values = self.data_processor.collect_lookup_values(df)
         lookup_caches = self.data_processor.prefetch_lookups(lookup_values)
@@ -165,28 +175,63 @@ class FileImportService:
                 to_create = []
                 to_update = []
                 update_fields = set()
+                unique_key_rows = {}
+                row_unique_keys = {}
 
                 for idx, row in df.iterrows():
+                    # Preserve failure semantics across model steps.
+                    if results_per_row[idx]["status"] == "failed":
+                        continue
+
                     try:
                         kwargs = self.data_processor.prepare_kwargs_for_row(
                             row, model_config, created_objs[idx], lookup_caches
                         )
                         existing_obj = None
+                        unique_key = None
                         if unique_by:
-                            existing_obj = self.data_processor.find_existing_obj(
-                                existing_map, unique_by, kwargs
+                            unique_key = self.data_processor.get_unique_key(
+                                unique_by, kwargs
                             )
+                            if unique_key is not None:
+                                row_unique_keys[idx] = unique_key
+                                unique_key_rows.setdefault(unique_key, []).append(idx)
+                                existing_obj = existing_map.get(unique_key)
 
                         if existing_obj and update_if_exists:
                             self.bulk_ops.apply_updates(existing_obj, kwargs)
-                            to_update.append(existing_obj)
-                            update_fields.update(kwargs.keys())
+                            if existing_obj.pk is None:
+                                # Same-step duplicate key mapped to a pending create instance.
+                                # No DB update is needed; current in-memory instance already has latest values.
+                                pass
+                            else:
+                                to_update.append((idx, existing_obj))
+                                update_fields.update(kwargs.keys())
                             created_objs[idx][step_key] = existing_obj
-                            results_per_row[idx]["status"] = "updated"
+                            set_row_status(idx, "updated")
+                        elif existing_obj:
+                            key_display = (
+                                ", ".join(f"{field}={kwargs.get(field)!r}" for field in unique_by)
+                                if unique_by
+                                else "<unknown>"
+                            )
+                            mark_row_failed(
+                                idx,
+                                (
+                                    f"Row {start_row_offset + idx + 1}, Field '{step_key}': "
+                                    "Existing object matches unique_by key "
+                                    f"({key_display}) but update_if_exists is False"
+                                ),
+                            )
+                            continue
                         else:
                             inst = model_cls(**kwargs)
                             to_create.append((idx, inst))
-                            results_per_row[idx]["status"] = "created"
+                            if unique_key is not None:
+                                # Keep unique map live during row loop so same-chunk duplicates
+                                # resolve against newly staged instances.
+                                existing_map[unique_key] = inst
+                            set_row_status(idx, "created")
 
                     except ImportErrorRow as e:
                         # Handle specific import errors with detailed context
@@ -198,8 +243,7 @@ class FileImportService:
                         else:
                             error_msg = f"Row {row_num}: {str(e)}"
                         logger.error("Import error at row %s: %s", row_num, e)
-                        results_per_row[idx]["status"] = "failed"
-                        results_per_row[idx]["errors"].append(error_msg)
+                        mark_row_failed(idx, error_msg)
                     except Exception as e:
                         # Handle unexpected errors separately to avoid overwriting ImportErrorRow
                         row_num = start_row_offset + idx + 1
@@ -207,8 +251,7 @@ class FileImportService:
                         logger.error(
                             "Unexpected error preparing row %s: %s", row_num, e
                         )
-                        results_per_row[idx]["status"] = "failed"
-                        results_per_row[idx]["errors"].append(error_msg)
+                        mark_row_failed(idx, error_msg)
 
                     # Progress callback
                     if callback and (idx + 1) % 100 == 0:
@@ -232,12 +275,32 @@ class FileImportService:
 
                 # Update row status for failed saves
                 for row_idx, error_msg in save_errors.items():
-                    results_per_row[row_idx]["status"] = "failed"
-                    results_per_row[row_idx]["errors"].append(
+                    mark_row_failed(
+                        row_idx,
                         f"Row {start_row_offset + row_idx + 1}, Field '{step_key}': {error_msg}"
                     )
+                    unique_key = row_unique_keys.get(row_idx)
+                    if unique_key is not None:
+                        for related_row_idx in unique_key_rows.get(unique_key, []):
+                            if related_row_idx == row_idx:
+                                continue
+                            mark_row_failed(
+                                related_row_idx,
+                                (
+                                    f"Row {start_row_offset + related_row_idx + 1}, Field '{step_key}': "
+                                    "Failed because another row with the same unique_by key "
+                                    f"could not be created ({error_msg})"
+                                ),
+                            )
 
-                self.bulk_ops.bulk_update_instances(model_cls, to_update, update_fields)
+                update_errors = self.bulk_ops.bulk_update_instances(
+                    model_cls, to_update, update_fields
+                )
+                for row_idx, error_msg in update_errors.items():
+                    mark_row_failed(
+                        row_idx,
+                        f"Row {start_row_offset + row_idx + 1}, Field '{step_key}': {error_msg}",
+                    )
 
         # Final progress callback
         if callback:

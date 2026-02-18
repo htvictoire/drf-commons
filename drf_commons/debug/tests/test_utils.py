@@ -289,9 +289,10 @@ class TestProfileFunction(DrfCommonTestCase):
 class TestMemoryUsage(DrfCommonTestCase):
     """Test memory_usage function."""
 
-    @patch("drf_commons.debug.utils.psutil")
-    def test_memory_usage_with_psutil(self, mock_psutil):
+    @patch("drf_commons.debug.utils.importlib.import_module")
+    def test_memory_usage_with_psutil(self, mock_import_module):
         """memory_usage returns memory info when psutil is available."""
+        mock_psutil = Mock()
         mock_process = Mock()
         mock_memory_info = Mock()
         mock_memory_info.rss = 1024000
@@ -304,6 +305,7 @@ class TestMemoryUsage(DrfCommonTestCase):
 
         mock_psutil.Process.return_value = mock_process
         mock_psutil.virtual_memory.return_value = mock_virtual_memory
+        mock_import_module.return_value = mock_psutil
 
         result = memory_usage()
 
@@ -314,6 +316,18 @@ class TestMemoryUsage(DrfCommonTestCase):
             "available": 8192000000,
         }
         self.assertEqual(result, expected)
+
+    @patch("drf_commons.debug.utils.importlib.import_module")
+    def test_memory_usage_raises_helpful_error_when_psutil_missing(
+        self, mock_import_module
+    ):
+        """memory_usage should raise install guidance when psutil is unavailable."""
+        mock_import_module.side_effect = ImportError("No module named psutil")
+
+        with self.assertRaises(ImportError) as cm:
+            memory_usage()
+
+        self.assertIn("drf-commons[debug]", str(cm.exception))
 
 
 

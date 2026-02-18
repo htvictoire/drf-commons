@@ -5,7 +5,9 @@ Tests for model mixins.
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
 from django.db import models
+from django.test import override_settings
 from django.utils import timezone
 
 from drf_commons.common_tests.base_cases import ModelTestCase
@@ -167,7 +169,7 @@ class SoftDeleteMixinTests(ModelTestCase):
         """Test soft_delete method sets deleted_at and saves."""
         model = SoftDeleteModelForTesting()
 
-        with patch("models.mixins.timezone.now") as mock_now:
+        with patch("drf_commons.models.mixins.timezone.now") as mock_now:
             mock_time = timezone.now()
             mock_now.return_value = mock_time
 
@@ -176,7 +178,7 @@ class SoftDeleteMixinTests(ModelTestCase):
             self.assertEqual(model.deleted_at, mock_time)
             mock_save.assert_called_once_with(update_fields=["deleted_at", "is_active"])
 
-    @patch("models.mixins.get_current_authenticated_user")
+    @patch("drf_commons.models.mixins.get_current_authenticated_user")
     def test_user_action_mixin_save_calls_set_user_method(self, mock_get_user):
         """Test UserActionMixin save method calls set_created_by_and_updated_by."""
         user = UserFactory()
@@ -191,7 +193,7 @@ class SoftDeleteMixinTests(ModelTestCase):
                 mock_set_user.assert_called_once()
                 mock_super_save.assert_called_once()
 
-    @patch("models.mixins.get_current_authenticated_user")
+    @patch("drf_commons.models.mixins.get_current_authenticated_user")
     def test_set_created_by_and_updated_by_new_instance(self, mock_get_user):
         """Test set_created_by_and_updated_by for new instances."""
         user = UserFactory()
@@ -205,7 +207,7 @@ class SoftDeleteMixinTests(ModelTestCase):
             self.assertEqual(model.created_by, user)
             self.assertEqual(model.updated_by, user)
 
-    @patch("models.mixins.get_current_authenticated_user")
+    @patch("drf_commons.models.mixins.get_current_authenticated_user")
     def test_set_created_by_and_updated_by_existing_instance(self, mock_get_user):
         """Test set_created_by_and_updated_by for existing instances."""
         original_user = UserFactory()
@@ -221,7 +223,7 @@ class SoftDeleteMixinTests(ModelTestCase):
             self.assertEqual(model.created_by, original_user)
             self.assertEqual(model.updated_by, current_user)
 
-    @patch("models.mixins.get_current_authenticated_user")
+    @patch("drf_commons.models.mixins.get_current_authenticated_user")
     def test_set_created_by_and_updated_by_no_user(self, mock_get_user):
         """Test set_created_by_and_updated_by when no current user."""
         mock_get_user.return_value = None
@@ -233,7 +235,7 @@ class SoftDeleteMixinTests(ModelTestCase):
         self.assertIsNone(model.created_by)
         self.assertIsNone(model.updated_by)
 
-    @patch("models.mixins.get_current_authenticated_user")
+    @patch("drf_commons.models.mixins.get_current_authenticated_user")
     def test_set_created_by_and_updated_by_unauthenticated_user(self, mock_get_user):
         """Test set_created_by_and_updated_by when user is not authenticated."""
         user = Mock()
@@ -292,3 +294,10 @@ class SoftDeleteMixinTests(ModelTestCase):
         model = UserActionModelForTesting(name="test")
         self.assertIsNotNone(model)
         self.assertEqual(model.name, "test")
+
+    @override_settings(MIDDLEWARE=["django.middleware.security.SecurityMiddleware"])
+    def test_user_action_middleware_checked_on_save_path(self):
+        """Middleware requirement is enforced when attribution logic executes."""
+        model = UserActionModelForTesting(name="test")
+        with self.assertRaises(ImproperlyConfigured):
+            model.set_created_by_and_updated_by()

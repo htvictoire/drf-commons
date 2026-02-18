@@ -17,6 +17,11 @@ class FlexibleField(ConfigurableRelatedField):
     Input: ID, nested data, or string lookup
     Output: Full serialized object
 
+    relation_write:
+        Optional dict forwarded to relation-write resolution.
+        Keys: ``relation_kind``, ``write_order``, ``child_link_field``, ``sync_mode``.
+        If omitted, inferred relation metadata and default sync behavior are used.
+
     Example:
         author = FlexibleField(
             queryset=Author.objects.all(),
@@ -24,7 +29,9 @@ class FlexibleField(ConfigurableRelatedField):
         )
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, relation_write=None, **kwargs):
+        if relation_write is not None:
+            kwargs.setdefault("relation_write", relation_write)
         kwargs.setdefault("input_formats", ["id", "nested", "slug"])
         kwargs.setdefault("output_format", "serialized")
         super().__init__(**kwargs)
@@ -37,6 +44,11 @@ class CustomOutputField(ConfigurableRelatedField):
     Input: ID or nested data
     Output: Custom format via callable
 
+    relation_write:
+        Optional dict for relation write orchestration overrides.
+        This only affects write-time relation behavior; output remains controlled by
+        ``custom_output_callable``.
+
     Example:
         author = CustomOutputField(
             queryset=Author.objects.all(),
@@ -45,7 +57,14 @@ class CustomOutputField(ConfigurableRelatedField):
         )
     """
 
-    def __init__(self, custom_output_callable: Callable[[Any, dict], Any], **kwargs):
+    def __init__(
+        self,
+        custom_output_callable: Callable[[Any, dict], Any],
+        relation_write=None,
+        **kwargs,
+    ):
+        if relation_write is not None:
+            kwargs.setdefault("relation_write", relation_write)
         kwargs["custom_output_callable"] = custom_output_callable
         kwargs.setdefault("input_formats", ["id", "nested"])
         kwargs.setdefault("output_format", "custom")

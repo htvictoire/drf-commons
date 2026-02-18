@@ -7,10 +7,10 @@ It's organized into logical modules for better maintainability and easier import
 Modules:
     base: Core mixins (UserActionMixin, TimeStampMixin, SoftDeleteMixin, BaseModelMixin)
     content: Content-related mixins (SlugMixin, MetaMixin, VersionMixin)
-    person: Person-related mixins and models (IdentityMixin, AddressMixin, PersonMixin)
+    person: Person-related mixins (IdentityMixin, AddressMixin)
 
 Usage:
-    from drf_commons.models import BaseModelMixin, PersonMixin
+    from drf_commons.models import BaseModelMixin
     from drf_commons.models import UserActionMixin, TimeStampMixin
     from drf_commons.models import IdentityMixin, AddressMixin
     from drf_commons.models import SlugMixin, MetaMixin, VersionMixin
@@ -39,7 +39,6 @@ from .fields import (
 # Person-related mixins and models
 from .person import (
     AddressMixin,
-    PersonMixin,
     IdentityMixin,
 )
 
@@ -56,7 +55,6 @@ __all__ = [
     # Person mixins and models
     "IdentityMixin",
     "AddressMixin",
-    "PersonMixin",
     # Custom fields
     "CurrentUserField",
 ]

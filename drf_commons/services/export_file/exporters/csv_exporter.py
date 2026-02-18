@@ -7,7 +7,11 @@ from typing import Dict, List
 
 from django.http import HttpResponse
 
-from ..utils import get_column_label, get_working_date
+from ..utils import (
+    get_column_label,
+    get_working_date,
+    sanitize_spreadsheet_cell,
+)
 
 
 class CSVExporter:
@@ -34,7 +38,7 @@ class CSVExporter:
         # Write document headers (top left)
         for header_line in export_headers:
             if header_line.strip():
-                writer.writerow([header_line])
+                writer.writerow([sanitize_spreadsheet_cell(str(header_line))])
 
         # Add spacing after headers if we have them
         if export_headers:
@@ -43,14 +47,17 @@ class CSVExporter:
         # Write document titles (centered above table)
         for title in document_titles:
             if title.strip():
-                writer.writerow([title])
+                writer.writerow([sanitize_spreadsheet_cell(str(title))])
 
         # Add spacing after titles if we have them
         if document_titles:
             writer.writerow([""])
 
         # Write column headers
-        headers = [get_column_label(field, column_config) for field in includes]
+        headers = [
+            sanitize_spreadsheet_cell(str(get_column_label(field, column_config)))
+            for field in includes
+        ]
         writer.writerow(headers)
 
         # Write data
@@ -59,7 +66,8 @@ class CSVExporter:
             for field_name in includes:
                 value = row.get(field_name, "")
                 # Handle None values and convert to string
-                csv_row.append(str(value) if value is not None else "")
+                cell_value = str(value) if value is not None else ""
+                csv_row.append(sanitize_spreadsheet_cell(cell_value))
             writer.writerow(csv_row)
 
         # Write footer with working date

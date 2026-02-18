@@ -32,6 +32,19 @@ class ConfigValidatorTests(DrfCommonTestCase):
         }
         self.transforms = {}
 
+    @staticmethod
+    def _minimal_valid_config():
+        return {
+            "file_format": "xlsx",
+            "order": ["main"],
+            "models": {
+                "main": {
+                    "model": "auth.User",
+                    "direct_columns": {"username": "username"},
+                }
+            },
+        }
+
     def test_validator_initialization(self):
         """Test validator initializes with config and transforms."""
         validator = ConfigValidator(self.valid_config, self.transforms)
@@ -100,3 +113,94 @@ class ConfigValidatorTests(DrfCommonTestCase):
 
         with self.assertRaises(ImportValidationError):
             validator.validate()
+
+    def test_validate_lookup_field_must_be_database_field(self):
+        """Lookup fields must target concrete model fields."""
+        invalid_config = {
+            "file_format": "xlsx",
+            "order": ["main"],
+            "models": {
+                "main": {
+                    "model": "auth.User",
+                    "direct_columns": {"username": "username"},
+                    "lookup_fields": {
+                        "manager": {
+                            "column": "username",
+                            "model": "auth.User",
+                            "lookup_field": "get_full_name",
+                        }
+                    },
+                }
+            },
+        }
+
+        validator = ConfigValidator(invalid_config, self.transforms)
+        with self.assertRaises(ImportValidationError) as cm:
+            validator.validate()
+
+        self.assertIn("lookup_field", str(cm.exception))
+        self.assertIn("database field", str(cm.exception))
+
+    def test_validate_lookup_field_accepts_database_field(self):
+        """Lookup fields with DB-backed lookup_field pass validation."""
+        valid_lookup_config = {
+            "file_format": "xlsx",
+            "order": ["main"],
+            "models": {
+                "main": {
+                    "model": "auth.User",
+                    "direct_columns": {"username": "username"},
+                    "lookup_fields": {
+                        "manager": {
+                            "column": "username",
+                            "model": "auth.User",
+                            "lookup_field": "username",
+                        }
+                    },
+                }
+            },
+        }
+
+        validator = ConfigValidator(valid_lookup_config, self.transforms)
+        validator.validate()
+
+    def test_validate_rejects_chunk_size_zero(self):
+        """chunk_size must be >= 1 when provided."""
+        invalid_config = self._minimal_valid_config()
+        invalid_config["chunk_size"] = 0
+
+        validator = ConfigValidator(invalid_config, self.transforms)
+        with self.assertRaises(ImportValidationError) as cm:
+            validator.validate()
+
+        self.assertIn("chunk_size", str(cm.exception))
+
+    def test_validate_rejects_negative_chunk_size(self):
+        """Negative chunk_size values are invalid."""
+        invalid_config = self._minimal_valid_config()
+        invalid_config["chunk_size"] = -5
+
+        validator = ConfigValidator(invalid_config, self.transforms)
+        with self.assertRaises(ImportValidationError) as cm:
+            validator.validate()
+
+        self.assertIn("chunk_size", str(cm.exception))
+
+    def test_validate_rejects_non_integer_chunk_size(self):
+        """chunk_size must be an integer, not string/float."""
+        invalid_config = self._minimal_valid_config()
+        invalid_config["chunk_size"] = "100"
+
+        validator = ConfigValidator(invalid_config, self.transforms)
+        with self.assertRaises(ImportValidationError) as cm:
+            validator.validate()
+
+        self.assertIn("chunk_size", str(cm.exception))
+
+    def test_validate_accepts_positive_chunk_size(self):
+        """Positive integer chunk_size is accepted."""
+        valid_config = self._minimal_valid_config()
+        valid_config["chunk_size"] = 100
+
+        validator = ConfigValidator(valid_config, self.transforms)
+        validator.validate()

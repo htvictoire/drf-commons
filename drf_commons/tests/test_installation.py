@@ -103,25 +103,8 @@ class LibraryInstallationTests(TestCase):
         """Test Django apps are properly configured."""
         from django.apps import apps
 
-        # Test individual app configs exist
-        app_configs = [
-            'drf_commons.current_user',
-            'drf_commons.debug',
-            'drf_commons.filters',
-            'drf_commons.pagination',
-            'drf_commons.response',
-            'drf_commons.serializers',
-            'drf_commons.views',
-        ]
-
-        for app_name in app_configs:
-            with self.subTest(app=app_name):
-                try:
-                    app_config = apps.get_app_config(app_name.split('.')[-1])
-                    self.assertEqual(app_config.name, app_name)
-                except LookupError:
-                    # App might not be in INSTALLED_APPS, which is OK
-                    pass
+        app_config = apps.get_app_config("drf_commons")
+        self.assertEqual(app_config.name, "drf_commons")
 
     def test_settings_module_exists(self):
         """Test settings modules can be imported."""
@@ -136,6 +119,13 @@ class LibraryInstallationTests(TestCase):
             # Should import without error
         except ImportError:
             self.fail("Could not import django_settings")
+
+    def test_management_command_discovery(self):
+        """Test commands are discoverable with umbrella app registration."""
+        from django.core.management import get_commands
+
+        commands = get_commands()
+        self.assertIn("generate_import_template", commands)
 
     def test_common_tests_utilities_importable(self):
         """Test common test utilities can be imported."""

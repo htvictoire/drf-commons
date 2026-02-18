@@ -18,6 +18,13 @@ class FieldProcessor:
     def __init__(self, transforms: Dict[str, callable]):
         self.transforms = transforms or {}
 
+    @staticmethod
+    def normalize_cell_value(value):
+        """Normalize placeholder cell values used by file parsers to None."""
+        if value is not None and str(value).strip().lower() in {"nan", "none"}:
+            return None
+        return value
+
     def apply_transform(self, transform_name: str, value):
         """Apply named transform function to value."""
         fn = self.transforms.get(transform_name)
@@ -61,13 +68,7 @@ class FieldProcessor:
                 current_value = None
                 if compute_mode == "if_empty" and "column" in compute_spec:
                     column_name = compute_spec["column"]
-                    current_value = row.get(column_name)
-                    # Clean pandas NaN values
-                    if current_value is not None and str(current_value).lower() in [
-                        "nan",
-                        "none",
-                    ]:
-                        current_value = None
+                    current_value = self.normalize_cell_value(row.get(column_name))
 
                 # Check if we should compute the value
                 should_compute = False
@@ -102,10 +103,7 @@ class FieldProcessor:
 
         for field_name, column_name in model_config["direct_columns"].items():
             try:
-                value = row.get(column_name)
-                # Clean pandas NaN values
-                if value is not None and str(value).lower() in ["nan", "none"]:
-                    value = None
+                value = self.normalize_cell_value(row.get(column_name))
                 kwargs[field_name] = value
             except Exception as e:
                 raise ImportErrorRow(
@@ -123,10 +121,7 @@ class FieldProcessor:
             try:
                 column_name = transform_spec["column"]
                 transform_name = transform_spec["transform"]
-                value = row.get(column_name)
-                # Clean pandas NaN values before transformation
-                if value is not None and str(value).lower() in ["nan", "none"]:
-                    value = None
+                value = self.normalize_cell_value(row.get(column_name))
                 if value is not None:
                     value = self.apply_transform(transform_name, value)
                 kwargs[field_name] = value
@@ -203,7 +198,7 @@ class FieldProcessor:
         for field_name, lookup_spec in model_config["lookup_fields"].items():
             try:
                 column_name = lookup_spec["column"]
-                source_val = row.get(column_name)
+                source_val = self.normalize_cell_value(row.get(column_name))
 
                 if source_val is None:
                     kwargs[field_name] = None

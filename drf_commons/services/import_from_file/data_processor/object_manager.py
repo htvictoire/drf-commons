@@ -171,10 +171,19 @@ class ObjectManager:
         self, existing_map: Dict, unique_by: List[str], kwargs: Dict[str, Any]
     ):
         """Find existing object based on unique_by fields."""
+        key = self.get_unique_key(unique_by, kwargs)
+        if key is None:
+            return None
+        return existing_map.get(key)
+
+    def get_unique_key(
+        self, unique_by: List[str], kwargs: Dict[str, Any]
+    ) -> tuple | None:
+        """Build unique tuple key from kwargs, or None if any field is missing/None."""
         key = []
         for field in unique_by:
-            if field in kwargs:
-                key.append(kwargs[field])
-            else:
+            value = kwargs.get(field)
+            if value is None:
                 return None
-        return existing_map.get(tuple(key))
+            key.append(value)
+        return tuple(key)

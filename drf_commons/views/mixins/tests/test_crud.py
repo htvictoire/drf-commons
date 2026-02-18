@@ -82,6 +82,54 @@ class ListModelMixinTests(ViewTestCase):
         mixin = ListModelMixin()
         self.assertTrue(hasattr(mixin, "list"))
 
+    def test_list_with_paginated_false_skips_paginator(self):
+        """`paginated=false` should bypass paginator internals."""
+        mixin = ListModelMixin()
+
+        mock_queryset = Mock()
+        mock_queryset.count.side_effect = AssertionError("count() should not be called")
+        mock_serializer = Mock()
+        mock_serializer.data = [{"id": 1}]
+
+        mixin.get_queryset = Mock(return_value=mock_queryset)
+        mixin.filter_queryset = Mock(return_value=mock_queryset)
+        mixin.paginate_queryset = Mock(return_value=[{"id": 1}])
+        mixin.get_serializer = Mock(return_value=mock_serializer)
+
+        request = Mock()
+        request.query_params = {"paginated": "false"}
+
+        response = mixin.list(request)
+
+        mixin.paginate_queryset.assert_not_called()
+        mock_queryset.count.assert_not_called()
+        self.assertEqual(response.status_code, 200)
+
+    def test_list_with_paginated_true_uses_paginator(self):
+        """`paginated=true` should invoke paginator internals."""
+        mixin = ListModelMixin()
+
+        mock_queryset = Mock()
+        mock_queryset.count.return_value = 1
+        mock_serializer = Mock()
+        mock_serializer.data = [{"id": 1}]
+        mock_paginated = Mock()
+        mock_paginated.data = {"count": 1, "next": None, "previous": None, "results": [{"id": 1}]}
+
+        mixin.get_queryset = Mock(return_value=mock_queryset)
+        mixin.filter_queryset = Mock(return_value=mock_queryset)
+        mixin.paginate_queryset = Mock(return_value=[{"id": 1}])
+        mixin.get_serializer = Mock(return_value=mock_serializer)
+        mixin.get_paginated_response = Mock(return_value=mock_paginated)
+
+        request = Mock()
+        request.query_params = {"paginated": "true"}
+
+        response = mixin.list(request)
+
+        mixin.paginate_queryset.assert_called_once_with(mock_queryset)
+        self.assertEqual(response.status_code, 200)
+
 
 class RetrieveModelMixinTests(ViewTestCase):
     """Tests for RetrieveModelMixin."""
@@ -138,3 +186,31 @@ class DestroyModelMixinTests(ViewTestCase):
         """Test DestroyModelMixin has perform_destroy method."""
         mixin = DestroyModelMixin()
         self.assertTrue(hasattr(mixin, "perform_destroy"))
+
+    def test_destroy_returns_success_response_envelope(self):
+        """Destroy should return standard success_response payload."""
+        mixin = DestroyModelMixin()
+        instance = Mock()
+        mixin.get_object = Mock(return_value=instance)
+        mixin.perform_destroy = Mock()
+
+        response = mixin.destroy(request=Mock())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["success"])
+        self.assertIn("message", response.data)
+        mixin.perform_destroy.assert_called_once_with(instance)
+
+    def test_soft_destroy_returns_success_response_envelope(self):
+        """Soft destroy should return standard success_response payload."""
+        mixin = DestroyModelMixin()
+        instance = Mock()
+        mixin.get_object = Mock(return_value=instance)
+        mixin.perform_soft_destroy = Mock()
+
+        response = mixin.soft_destroy(request=Mock())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["success"])
+        self.assertIn("message", response.data)
+        mixin.perform_soft_destroy.assert_called_once_with(instance)

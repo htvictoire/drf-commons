@@ -15,8 +15,8 @@ from .mixins import SoftDeleteMixin, TimeStampMixin, UserActionMixin
 
 
 class BaseModelMixin(
-        UserActionMixin, 
-        TimeStampMixin, 
+        UserActionMixin,
+        TimeStampMixin,
         SoftDeleteMixin
     ):
     """
@@ -88,4 +88,4 @@ class BaseModelMixin(
         return json.dumps(data, cls=DjangoJSONEncoder)
 
     class Meta:
-        get_latest_by = "created_at"
+        abstract = True

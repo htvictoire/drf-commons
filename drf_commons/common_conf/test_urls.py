@@ -4,7 +4,11 @@ URL configuration for testing.
 
 from django.urls import path
 
-from drf_commons.tests.test_middleware_integration import middleware_test_view, slow_view, query_heavy_view
+from drf_commons.common_conf.test_views import (
+    middleware_test_view,
+    query_heavy_view,
+    slow_view,
+)
 
 urlpatterns = [
     path('test/', middleware_test_view, name='test_view'),

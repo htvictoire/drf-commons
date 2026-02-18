@@ -67,14 +67,15 @@ class MiddlewareCheckerTestCase(DrfCommonTestCase):
                 "django.middleware.security.SecurityMiddleware",
             ]
         ):
-            with self.assertRaises(ImproperlyConfigured) as cm:
+            @require_middleware(
+                "drf_commons.middlewares.current_user.CurrentUserMiddleware",
+                "TestFeature",
+            )
+            def test_function():
+                return True
 
-                @require_middleware(
-                    "drf_commons.middlewares.current_user.CurrentUserMiddleware",
-                    "TestFeature",
-                )
-                def test_function():
-                    return True
+            with self.assertRaises(ImproperlyConfigured) as cm:
+                test_function()
 
             error_message = str(cm.exception)
             self.assertIn("TestFeature requires", error_message)

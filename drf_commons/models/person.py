@@ -12,9 +12,10 @@ from django.db import models
 from django.utils import timezone
 
 from .base import BaseModelMixin
+from .mixins import UserActionMixin, TimeStampMixin, SoftDeleteMixin
 
 
-class IdentityMixin:
+class IdentityMixin(models.Model):
     """
     Mixin that provides personal identity fields.
 
@@ -126,8 +127,11 @@ class IdentityMixin:
         """String representation of the person."""
         return self.full_name
 
+    class Meta:
+        abstract = True
 
-class AddressMixin:
+
+class AddressMixin(models.Model):
     """
     Mixin that provides address fields.
 
@@ -246,66 +250,5 @@ class AddressMixin:
             return (float(self.latitude), float(self.longitude))
         return None
 
-
-class PersonMixin(
-        BaseModelMixin,
-        IdentityMixin,
-        AddressMixin
-    ):
-    """
-    Base person model that combines identity and address information.
-
-    This model provides a complete foundation for any person-related models
-    in the system, combining personal identity information with address data,
-    along with standard tracking fields from BaseModelMixin.
-
-    Inherits from:
-        - BaseModelMixin: Provides UUID, timestamps, user tracking, JSON serialization
-        - IdentityMixin: Provides personal identity fields (name, email, phone, etc.)
-        - AddressMixin: Provides address fields
-
-    This model can be used as a base for:
-        - Customer models
-        - Employee models
-        - Contact models
-        - User profile models
-        - Any other person-related entities
-    """
-
-    def get_display_info(self) -> Dict[str, Any]:
-        """
-        Get a dictionary of key display information for the person.
-
-        Returns:
-            Dictionary containing key person information for display purposes
-        """
-        return {
-            "id": str(self.id),
-            "full_name": self.full_name,
-            "email": self.email,
-            "phone": self.phone,
-            "short_address": self.short_address,
-            "age": self.age,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-        }
-
-    def get_contact_info(self) -> Dict[str, str]:
-        """
-        Get contact information for the person.
-
-        Returns:
-            Dictionary containing contact information
-        """
-        contact_info = {
-            "email": self.email,
-            "phone": self.phone,
-        }
-
-        if self.full_address:
-            contact_info["address"] = self.full_address
-
-        return {k: v for k, v in contact_info.items() if v}
-
-    def __str__(self) -> str:
-        """String representation of the person."""
-        return f"{self.full_name} ({self.email})"
+    class Meta:
+        abstract = True

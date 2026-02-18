@@ -6,6 +6,7 @@ for all configurable related field functionality.
 """
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.conf import settings as django_settings
 
 from rest_framework import serializers
@@ -214,3 +215,43 @@ class ConfigurableRelatedFieldMixinTests(SerializerTestCase):
             else:
                 field = create_mock_field(queryset=self.queryset, output_format=fmt)
             self.assertEqual(field.output_format, fmt)
+
+    def test_to_internal_value_resolves_slug_when_id_and_slug_enabled(self):
+        """Non-numeric strings should resolve through slug lookup when enabled."""
+        group = Group.objects.create(name="ops-team")
+        field = create_mock_field(
+            queryset=Group.objects.all(),
+            input_formats=["id", "slug"],
+        )
+
+        result = field.to_internal_value("ops-team")
+
+        self.assertEqual(result, group)
+
+    def test_to_internal_value_numeric_string_prefers_id_lookup(self):
+        """Numeric strings should resolve through ID lookup when available."""
+        group = Group.objects.create(name="group-1")
+        field = create_mock_field(
+            queryset=Group.objects.all(),
+            input_formats=["id", "slug"],
+        )
+
+        result = field.to_internal_value(str(group.pk))
+
+        self.assertEqual(result, group)
+
+    def test_to_internal_value_numeric_string_falls_back_to_slug(self):
+        """If numeric ID lookup fails, numeric slug-like names still resolve."""
+        group = Group.objects.create(name="404")
+        field = create_mock_field(
+            queryset=Group.objects.all(),
+            input_formats=["id", "slug"],
+        )
+        field.error_messages = {
+            "does_not_exist": "Object does not exist.",
+            "incorrect_type": "Incorrect type.",
+        }
+
+        result = field.to_internal_value("404")
+
+        self.assertEqual(result, group)

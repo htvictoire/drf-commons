@@ -74,7 +74,9 @@ def prepare_export_headers(common_values: Dict[str, str]) -> List[str]:
         from constance import config as constance_settings
 
         docs_header_str = getattr(constance_settings, "DEFAULT_DOCS_HEADER", "")
-    except (ImportError, RuntimeError):
+    except Exception:
+        # django-constance integration is optional. Any initialization/backend
+        # failure should fall back to an empty docs header.
         docs_header_str = ""
 
     docs_header = (

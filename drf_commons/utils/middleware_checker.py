@@ -5,6 +5,8 @@ This module provides utilities to check if required middlewares are installed
 before using features that depend on them.
 """
 
+from functools import wraps
+
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
@@ -64,7 +66,16 @@ def require_middleware(middleware_path, feature_name):
     """
 
     def decorator(cls_or_func):
-        MiddlewareChecker(middleware_path, feature_name)
-        return cls_or_func
+        @wraps(cls_or_func)
+        def wrapped(*args, **kwargs):
+            MiddlewareChecker(middleware_path, feature_name)
+            return cls_or_func(*args, **kwargs)
+
+        return wrapped
 
     return decorator
+
+
+def enforce_middleware(middleware_path, feature_name):
+    """Runtime middleware requirement check for feature execution paths."""
+    MiddlewareChecker(middleware_path, feature_name)

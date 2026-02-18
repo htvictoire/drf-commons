@@ -8,7 +8,12 @@ from django.http import HttpResponse
 
 from drf_commons.common_conf import settings
 
-from ..utils import get_column_alignment, get_column_label, get_working_date
+from ..utils import (
+    get_column_alignment,
+    get_column_label,
+    get_working_date,
+    sanitize_spreadsheet_cell,
+)
 
 
 class XLSXExporter:
@@ -27,6 +32,7 @@ class XLSXExporter:
         try:
             from openpyxl import Workbook
             from openpyxl.styles import Alignment, Font, PatternFill
+            from openpyxl.utils import get_column_letter
         except ImportError as e:
             raise ImportError(
                 "XLSX export requires openpyxl. "
@@ -50,7 +56,11 @@ class XLSXExporter:
         # Write document headers (top left)
         for header_line in export_headers:
             if header_line.strip():
-                cell = ws.cell(row=current_row, column=1, value=header_line)
+                cell = ws.cell(
+                    row=current_row,
+                    column=1,
+                    value=sanitize_spreadsheet_cell(str(header_line)),
+                )
                 cell.font = Font(
                     bold=True, size=settings.EXPORTED_DOCS_HEADER_FONT_SIZE
                 )
@@ -66,10 +76,13 @@ class XLSXExporter:
             if title.strip():
                 # Merge cells for title to center it across all columns
                 if len(includes) > 1:
-                    ws.merge_cells(
-                        f"A{current_row}:{chr(64 + len(includes))}{current_row}"
-                    )
-                cell = ws.cell(row=current_row, column=1, value=title)
+                    last_column = get_column_letter(len(includes))
+                    ws.merge_cells(f"A{current_row}:{last_column}{current_row}")
+                cell = ws.cell(
+                    row=current_row,
+                    column=1,
+                    value=sanitize_spreadsheet_cell(str(title)),
+                )
                 cell.font = Font(bold=True, size=title_font_size)
                 cell.alignment = Alignment(horizontal="center")
                 current_row += 1
@@ -79,7 +92,10 @@ class XLSXExporter:
             current_row += 1
 
         # Write column headers
-        headers = [get_column_label(field, column_config) for field in includes]
+        headers = [
+            sanitize_spreadsheet_cell(str(get_column_label(field, column_config)))
+            for field in includes
+        ]
         for col_idx, (header, field_name) in enumerate(zip(headers, includes), 1):
             cell = ws.cell(row=current_row, column=col_idx, value=header)
             cell.font = header_font
@@ -101,6 +117,7 @@ class XLSXExporter:
                 value = row.get(field_name, "")
                 # Handle None values
                 cell_value = value if value is not None else ""
+                cell_value = sanitize_spreadsheet_cell(cell_value)
                 cell = ws.cell(row=row_idx, column=col_idx, value=cell_value)
 
                 # Apply column-specific alignment for data

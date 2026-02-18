@@ -3,6 +3,7 @@ Configuration validation for file import operations.
 """
 
 import logging
+from numbers import Integral
 from typing import Any, Dict, List, Set
 
 from django.apps import apps
@@ -45,6 +46,18 @@ class ConfigValidator:
         order = self.config["order"]
         if not order:
             raise ImportValidationError("Config 'order' cannot be empty")
+
+        # Validate optional chunk_size
+        if "chunk_size" in self.config:
+            chunk_size = self.config["chunk_size"]
+            if isinstance(chunk_size, bool) or not isinstance(chunk_size, Integral):
+                raise ImportValidationError(
+                    "Config 'chunk_size' must be a positive integer"
+                )
+            if chunk_size < 1:
+                raise ImportValidationError(
+                    "Config 'chunk_size' must be greater than or equal to 1"
+                )
 
         # Validate models exist in config
         models = self.config["models"]
@@ -137,10 +150,17 @@ class ConfigValidator:
 
             # Validate lookup model can be imported
             try:
-                self._get_model(lookup_spec["model"])
+                lookup_model = self._get_model(lookup_spec["model"])
             except Exception as e:
                 raise ImportValidationError(
                     f"Cannot import lookup model '{lookup_spec['model']}' for field '{field_name}': {e}"
+                )
+
+            lookup_field = lookup_spec["lookup_field"]
+            if not self._is_model_field(lookup_model, lookup_field):
+                raise ImportValidationError(
+                    f"lookup_fields['{field_name}'] lookup_field '{lookup_field}' must be a database field "
+                    f"on model '{lookup_spec['model']}'"
                 )
 
     def _validate_computed_fields(
@@ -291,3 +311,11 @@ class ConfigValidator:
     def _get_model(self, model_path: str):
         """Get Django model from app.Model path."""
         return apps.get_model(model_path)
+
+    def _is_model_field(self, model_cls, field_name: str) -> bool:
+        """Check if field_name is a database field on the model."""
+        try:
+            model_cls._meta.get_field(field_name)
+            return True
+        except Exception:
+            return False

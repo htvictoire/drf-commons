@@ -11,30 +11,19 @@ from django.conf import settings as django_settings
 class CommonSettings:
     """Manages library settings with namespace override support."""
 
-    def __init__(self):
-        self._cached_settings = {}
-
     def get(self, key, default=None):
         """
         Retrieve setting value with namespace override.
 
         Checks COMMON_{key} first, then {key}, then returns default.
         """
-        if key in self._cached_settings:
-            return self._cached_settings[key]
-
         namespaced_key = f"COMMON_{key}"
         if hasattr(django_settings, namespaced_key):
-            value = getattr(django_settings, namespaced_key)
-            self._cached_settings[key] = value
-            return value
+            return getattr(django_settings, namespaced_key)
 
         if hasattr(django_settings, key):
-            value = getattr(django_settings, key)
-            self._cached_settings[key] = value
-            return value
+            return getattr(django_settings, key)
 
-        self._cached_settings[key] = default
         return default
 
     def __getattr__(self, name):
@@ -207,5 +196,5 @@ def get_setting(key, default=None):
 
 
 def clear_settings_cache():
-    """Clear cached settings values."""
-    _settings._cached_settings.clear()
+    """Backward-compatible no-op; settings are resolved without local caching."""
+    return None

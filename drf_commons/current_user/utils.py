@@ -4,8 +4,6 @@ Current user utilities for thread-local user access.
 
 from threading import local
 
-from django.contrib.auth.models import AnonymousUser
-
 from drf_commons.common_conf import settings
 
 USER_ATTR_NAME = settings.LOCAL_USER_ATTR_NAME
@@ -38,6 +36,8 @@ def get_current_user():
 def get_current_authenticated_user():
     """Get current authenticated user, returns None for anonymous users."""
     current_user = get_current_user()
-    if isinstance(current_user, AnonymousUser):
+    if current_user is None:
+        return None
+    if not getattr(current_user, "is_authenticated", False):
         return None
     return current_user

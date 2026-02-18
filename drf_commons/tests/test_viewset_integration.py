@@ -8,6 +8,7 @@ import json
 from io import BytesIO
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.urls import path, include
 from django.test import override_settings
 
@@ -201,7 +202,7 @@ class BulkOperationTests(APITestCase):
         self.assertTrue(User.objects.filter(username="bulk_user2").exists())
 
     def test_bulk_update_operation(self):
-        """Test bulk update operation through API."""
+        """Test partial bulk update operation through API."""
         # Create test users
         user1 = UserFactory(username="update_user1", email="old1@test.com")
         user2 = UserFactory(username="update_user2", email="old2@test.com")
@@ -211,7 +212,7 @@ class BulkOperationTests(APITestCase):
             {"id": user2.id, "email": "new2@test.com"}
         ]
 
-        response = self.client.put('/api/bulk-users/bulk-update/', bulk_update_data, format='json')
+        response = self.client.patch('/api/bulk-users/bulk-update/', bulk_update_data, format='json')
         self.assertEqual(response.status_code, 200)
 
         # Verify updates in database
@@ -219,6 +220,76 @@ class BulkOperationTests(APITestCase):
         user2.refresh_from_db()
         self.assertEqual(user1.email, "new1@test.com")
         self.assertEqual(user2.email, "new2@test.com")
+
+    def test_bulk_update_matches_rows_by_id_not_queryset_order(self):
+        """Bulk update must apply each row to its declared id, not positional queryset order."""
+        user1 = UserFactory(username="ordered_user1", email="ordered_old1@test.com")
+        user2 = UserFactory(username="ordered_user2", email="ordered_old2@test.com")
+
+        # Reverse payload order intentionally. Querysets commonly return ascending PK order.
+        bulk_update_data = [
+            {"id": user2.id, "email": "ordered_new2@test.com"},
+            {"id": user1.id, "email": "ordered_new1@test.com"},
+        ]
+
+        response = self.client.patch(
+            "/api/bulk-users/bulk-update/", bulk_update_data, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+
+        user1.refresh_from_db()
+        user2.refresh_from_db()
+        self.assertEqual(user1.email, "ordered_new1@test.com")
+        self.assertEqual(user2.email, "ordered_new2@test.com")
+
+    def test_bulk_put_requires_full_payload(self):
+        """PUT bulk update must enforce full-update validation for each row."""
+        user1 = UserFactory(username="put_user1", email="put_old1@test.com")
+        user2 = UserFactory(username="put_user2", email="put_old2@test.com")
+
+        # Missing required username fields for full update.
+        payload = [
+            {"id": user1.id, "email": "put_new1@test.com"},
+            {"id": user2.id, "email": "put_new2@test.com"},
+        ]
+
+        response = self.client.put("/api/bulk-users/bulk-update/", payload, format="json")
+        self.assertEqual(response.status_code, 400)
+
+        user1.refresh_from_db()
+        user2.refresh_from_db()
+        self.assertEqual(user1.email, "put_old1@test.com")
+        self.assertEqual(user2.email, "put_old2@test.com")
+
+    def test_bulk_update_rejects_rows_with_missing_or_inaccessible_ids(self):
+        """Bulk update should fail fast when any row id is missing from queryset."""
+        user1 = UserFactory(username="missing_id_user1", email="missing_old1@test.com")
+
+        payload = [
+            {"id": user1.id, "email": "missing_new1@test.com"},
+            {"id": 99999999, "email": "missing_new_unknown@test.com"},
+        ]
+
+        response = self.client.put("/api/bulk-users/bulk-update/", payload, format="json")
+        self.assertEqual(response.status_code, 400)
+
+        user1.refresh_from_db()
+        self.assertEqual(user1.email, "missing_old1@test.com")
+
+    def test_bulk_update_rejects_duplicate_ids(self):
+        """Bulk update should reject duplicate ids to prevent ambiguous row mapping."""
+        user1 = UserFactory(username="dup_user1", email="dup_old1@test.com")
+
+        payload = [
+            {"id": user1.id, "email": "dup_new1@test.com"},
+            {"id": user1.id, "email": "dup_new2@test.com"},
+        ]
+
+        response = self.client.put("/api/bulk-users/bulk-update/", payload, format="json")
+        self.assertEqual(response.status_code, 400)
+
+        user1.refresh_from_db()
+        self.assertEqual(user1.email, "dup_old1@test.com")
 
     def test_bulk_delete_operation(self):
         """Test bulk delete operation through API."""
@@ -235,6 +306,25 @@ class BulkOperationTests(APITestCase):
         self.assertFalse(User.objects.filter(id=user1.id).exists())
         self.assertFalse(User.objects.filter(id=user2.id).exists())
         self.assertTrue(User.objects.filter(id=user3.id).exists())
+
+    def test_bulk_delete_count_excludes_cascaded_rows(self):
+        """Bulk delete response count should report only directly deleted model rows."""
+        user1 = UserFactory(username="cascade_delete_user1")
+        user2 = UserFactory(username="cascade_delete_user2")
+        group = Group.objects.create(name="cascade_delete_group")
+        user1.groups.add(group)
+        user2.groups.add(group)
+
+        through_model = User.groups.through
+        self.assertEqual(through_model.objects.filter(group=group).count(), 2)
+
+        delete_ids = [user1.id, user2.id]
+        response = self.client.delete("/api/bulk-users/bulk_delete/", delete_ids, format="json")
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(response.data["data"]["count"], 2)
+        self.assertEqual(response.data["data"]["requested_count"], 2)
+        self.assertEqual(through_model.objects.filter(group=group).count(), 0)
 
 
 @override_settings(ROOT_URLCONF=__name__)
@@ -328,6 +418,124 @@ class ImportExportTests(APITestCase):
         self.assertTrue(User.objects.filter(username="import_user1").exists())
         self.assertTrue(User.objects.filter(username="import_user2").exists())
 
+    def test_file_import_operation_accepts_boolean_mode_flag(self):
+        """Import endpoint should accept boolean mode flags without crashing."""
+        test_data = [
+            ["import_bool_user", "import_bool@test.com", "Import", "Bool"],
+        ]
+        excel_file = self.create_test_excel_file(test_data)
+
+        response = self.client.post(
+            "/api/import-export-users/import-from-file/",
+            {"file": excel_file, "append_data": True},
+            format="multipart",
+        )
+        self.assertIn(response.status_code, [200, 201])
+        self.assertTrue(User.objects.filter(username="import_bool_user").exists())
+
+    def test_file_import_updates_same_file_duplicates_when_update_enabled(self):
+        """Duplicate unique_by keys in the same file should resolve to one created record plus updates."""
+        duplicate_key_data = [
+            ["dup_in_file_user", "first@test.com", "First", "Version"],
+            ["dup_in_file_user", "second@test.com", "Second", "Version"],
+        ]
+        excel_file = self.create_test_excel_file(duplicate_key_data)
+
+        response = self.client.post(
+            "/api/import-export-users/import-from-file/",
+            {
+                "file": excel_file,
+                "append_data": "true",
+                "config": json.dumps(
+                    {
+                        "file_format": "xlsx",
+                        "order": ["users"],
+                        "models": {
+                            "users": {
+                                "model": "auth.User",
+                                "unique_by": ["username"],
+                                "update_if_exists": True,
+                                "direct_columns": {
+                                    "username": "username",
+                                    "email": "email",
+                                    "first_name": "first_name",
+                                    "last_name": "last_name",
+                                },
+                            }
+                        },
+                    }
+                ),
+            },
+            format="multipart",
+        )
+        self.assertIn(response.status_code, [200, 201])
+
+        user_qs = User.objects.filter(username="dup_in_file_user")
+        self.assertEqual(user_qs.count(), 1)
+        user = user_qs.first()
+        self.assertEqual(user.email, "second@test.com")
+        self.assertEqual(user.first_name, "Second")
+
+        if hasattr(response, "data"):
+            if "data" in response.data and "import_summary" in response.data["data"]:
+                summary = response.data["data"]["import_summary"]
+                self.assertEqual(summary["created"], 1)
+                self.assertEqual(summary["updated"], 1)
+                self.assertEqual(summary["failed"], 0)
+
+    def test_file_import_replace_mode_replaces_data_on_full_success(self):
+        """replace_data=true should atomically replace existing queryset rows on successful import."""
+        UserFactory(username="replace_old_user", email="old_replace@test.com")
+
+        test_data = [
+            ["replace_new_user1", "replace1@test.com", "Replace", "One"],
+            ["replace_new_user2", "replace2@test.com", "Replace", "Two"],
+        ]
+        excel_file = self.create_test_excel_file(test_data)
+
+        response = self.client.post(
+            "/api/import-export-users/import-from-file/",
+            {"file": excel_file, "replace_data": "true"},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 201)
+
+        self.assertFalse(User.objects.filter(username="replace_old_user").exists())
+        self.assertTrue(User.objects.filter(username="replace_new_user1").exists())
+        self.assertTrue(User.objects.filter(username="replace_new_user2").exists())
+
+        self.assertTrue(response.data.get("success"))
+        self.assertEqual(response.data["data"]["operation"], "replace")
+        self.assertGreaterEqual(response.data["data"]["deleted_count"], 1)
+
+    def test_file_import_replace_mode_rolls_back_when_any_row_fails(self):
+        """replace_data=true should roll back delete+import if any imported row fails."""
+        UserFactory(username="replace_keep_user", email="keep_replace@test.com")
+
+        # Missing required username forces a row-level create failure.
+        failing_data = [
+            ["replace_valid_user", "valid@test.com", "Valid", "Row"],
+            [None, "invalid@test.com", "Invalid", "Row"],
+        ]
+        excel_file = self.create_test_excel_file(failing_data)
+
+        response = self.client.post(
+            "/api/import-export-users/import-from-file/",
+            {"file": excel_file, "replace_data": "true"},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 422)
+
+        # Existing data must remain because replace operation is atomic.
+        self.assertTrue(User.objects.filter(username="replace_keep_user").exists())
+        # New rows from failed import must not be committed.
+        self.assertFalse(User.objects.filter(username="replace_valid_user").exists())
+
+        self.assertFalse(response.data.get("success"))
+        self.assertEqual(response.data["data"]["operation"], "replace")
+        self.assertEqual(response.data["data"]["deleted_count"], 0)
+        self.assertGreater(response.data["data"]["import_summary"]["failed"], 0)
+
     def test_file_export_csv_operation(self):
         """Test CSV export operation through API."""
         # Create test data
@@ -356,6 +564,50 @@ class ImportExportTests(APITestCase):
         content = response.content.decode('utf-8')
         self.assertIn("Username,Email,First Name", content)
         self.assertIn("export_user1,export1@test.com,Export", content)
+
+    def test_file_export_csv_operation_with_comma_separated_includes(self):
+        """Comma-separated includes payload should be normalized to field list."""
+        user = UserFactory(username="csv_inc_user", email="csv_inc@test.com", first_name="Csv")
+
+        export_data = {
+            "file_type": "csv",
+            "includes": " username, email , first_name ",
+            "column_config": {
+                "username": {"label": "Username"},
+                "email": {"label": "Email"},
+                "first_name": {"label": "First Name"},
+            },
+            "data": [
+                {"username": user.username, "email": user.email, "first_name": user.first_name}
+            ],
+        }
+
+        response = self.client.post('/api/import-export-users/export-as-file/', export_data)
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode("utf-8")
+        self.assertIn("Username,Email,First Name", content)
+        self.assertIn("csv_inc_user,csv_inc@test.com,Csv", content)
+
+    def test_file_export_rejects_invalid_includes_type(self):
+        """Non-string/non-list includes payload should be rejected."""
+        user = UserFactory(username="bad_inc_user", email="bad_inc@test.com", first_name="Bad")
+
+        export_data = {
+            "file_type": "csv",
+            "includes": 123,
+            "column_config": {
+                "username": {"label": "Username"},
+            },
+            "data": [
+                {"username": user.username},
+            ],
+        }
+
+        response = self.client.post('/api/import-export-users/export-as-file/', export_data)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.data["success"])
+        self.assertIn("includes", response.data["errors"])
 
     def test_file_export_xlsx_operation(self):
         """Test Excel export operation through API."""
@@ -427,7 +679,7 @@ class CombinedWorkflowTests(APITestCase):
             {"id": workflow_users[0]['id'], "last_name": "Updated"},
             {"id": workflow_users[1]['id'], "last_name": "Updated"}
         ]
-        update_response = self.client.put('/api/bulk-users/bulk-update/', update_data, format='json')
+        update_response = self.client.patch('/api/bulk-users/bulk-update/', update_data, format='json')
         self.assertEqual(update_response.status_code, 200)
 
         # 4. Export the updated data

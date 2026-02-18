@@ -15,6 +15,15 @@ class IdToDataField(ConfigurableRelatedField):
     Input: Integer/String ID
     Output: Full serialized object
 
+    relation_write:
+        Optional dict forwarded unchanged to ``ConfigurableRelatedFieldMixin``.
+        Supported keys:
+        - ``relation_kind``: ``auto|generic|fk|m2m|reverse_fk|reverse_m2m``
+        - ``write_order``: ``auto|dependency_first|root_first``
+        - ``child_link_field``: required for reverse FK linking when not inferable
+        - ``sync_mode``: ``append|replace|sync``
+        Defaults when omitted are auto relation/write-order and append sync.
+
     Example:
         author = IdToDataField(
             queryset=Author.objects.all(),
@@ -22,7 +31,9 @@ class IdToDataField(ConfigurableRelatedField):
         )
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, relation_write=None, **kwargs):
+        if relation_write is not None:
+            kwargs.setdefault("relation_write", relation_write)
         kwargs.setdefault("input_formats", ["id"])
         kwargs.setdefault("output_format", "serialized")
         super().__init__(**kwargs)
@@ -35,13 +46,19 @@ class IdToStrField(ConfigurableRelatedField):
     Input: Integer/String ID
     Output: String representation of the object (__str__)
 
+    relation_write:
+        Optional relation orchestration override for save-time behavior.
+        If omitted, relation metadata inference is used.
+
     Example:
         author = IdToStrField(
             queryset=Author.objects.all()
         )
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, relation_write=None, **kwargs):
+        if relation_write is not None:
+            kwargs.setdefault("relation_write", relation_write)
         kwargs.setdefault("input_formats", ["id"])
         kwargs.setdefault("output_format", "str")
         super().__init__(**kwargs)
@@ -51,8 +68,13 @@ class DataToIdField(ConfigurableRelatedField):
     """
     Field that accepts nested data input and returns only ID.
 
-    Input: Nested dictionary (creates/updates object)
+    Input: Nested dictionary (validated immediately; persisted at serializer save)
     Output: Object ID
+
+    relation_write:
+        Optional dict controlling nested relation persistence ordering.
+        Use explicit ``relation_write`` when field source maps to reverse relations
+        or when you need non-default sync behavior.
 
     Example:
         author = DataToIdField(
@@ -61,7 +83,9 @@ class DataToIdField(ConfigurableRelatedField):
         )
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, relation_write=None, **kwargs):
+        if relation_write is not None:
+            kwargs.setdefault("relation_write", relation_write)
         kwargs.setdefault("input_formats", ["nested", "id"])
         kwargs.setdefault("output_format", "id")
         super().__init__(**kwargs)
@@ -71,8 +95,12 @@ class DataToDataField(ConfigurableRelatedField):
     """
     Field that accepts nested data input and returns the entire object.
 
-    Input: Nested dictionary (creates/updates object)
+    Input: Nested dictionary (validated immediately; persisted at serializer save)
     Output: Full serialized object
+
+    relation_write:
+        Optional dict forwarded unchanged to relation-write resolution.
+        Reverse FK paths may require explicit ``child_link_field``.
 
     Example:
         author = DataToDataField(
@@ -81,7 +109,9 @@ class DataToDataField(ConfigurableRelatedField):
         )
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, relation_write=None, **kwargs):
+        if relation_write is not None:
+            kwargs.setdefault("relation_write", relation_write)
         kwargs.setdefault("input_formats", ["nested"])
         kwargs.setdefault("output_format", "serialized")
         super().__init__(**kwargs)
@@ -91,8 +121,12 @@ class DataToStrField(ConfigurableRelatedField):
     """
     Field that accepts nested data input and returns string representation.
 
-    Input: Nested dictionary (creates/updates object)
+    Input: Nested dictionary (validated immediately; persisted at serializer save)
     Output: String representation of object
+
+    relation_write:
+        Optional dict for relation orchestration.
+        Use explicit config for reverse relation manager writes.
 
     Example:
         category = DataToStrField(
@@ -101,7 +135,9 @@ class DataToStrField(ConfigurableRelatedField):
         )
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, relation_write=None, **kwargs):
+        if relation_write is not None:
+            kwargs.setdefault("relation_write", relation_write)
         kwargs.setdefault("input_formats", ["nested", "id"])
         kwargs.setdefault("output_format", "str")
         super().__init__(**kwargs)
@@ -114,6 +150,9 @@ class StrToDataField(ConfigurableRelatedField):
     Input: String (looks up by slug or name field)
     Output: Full serialized object
 
+    relation_write:
+        Optional dict for overriding inferred relation write behavior.
+
     Example:
         category = StrToDataField(
             queryset=Category.objects.all(),
@@ -121,7 +160,9 @@ class StrToDataField(ConfigurableRelatedField):
         )
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, relation_write=None, **kwargs):
+        if relation_write is not None:
+            kwargs.setdefault("relation_write", relation_write)
         kwargs.setdefault("input_formats", ["slug"])
         kwargs.setdefault("output_format", "serialized")
         super().__init__(**kwargs)
@@ -134,11 +175,16 @@ class IdOnlyField(ConfigurableRelatedField):
     Input: Integer/String ID
     Output: Integer/String ID
 
+    relation_write:
+        Optional dict for relation write orchestration overrides.
+
     Example:
         author_id = IdOnlyField(queryset=Author.objects.all())
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, relation_write=None, **kwargs):
+        if relation_write is not None:
+            kwargs.setdefault("relation_write", relation_write)
         kwargs.setdefault("input_formats", ["id"])
         kwargs.setdefault("output_format", "id")
         super().__init__(**kwargs)
@@ -151,11 +197,16 @@ class StrOnlyField(ConfigurableRelatedField):
     Input: String (slug/name lookup)
     Output: String representation
 
+    relation_write:
+        Optional dict for relation write orchestration overrides.
+
     Example:
         category_name = StrOnlyField(queryset=Category.objects.all())
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, relation_write=None, **kwargs):
+        if relation_write is not None:
+            kwargs.setdefault("relation_write", relation_write)
         kwargs.setdefault("input_formats", ["slug"])
         kwargs.setdefault("output_format", "str")
         super().__init__(**kwargs)

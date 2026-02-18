@@ -3,7 +3,9 @@ Mixins for file import and export functionality.
 """
 
 import os
+import logging
 from io import StringIO
+from uuid import uuid4
 
 from django.conf import settings as django_settings
 from django.core.management import call_command
@@ -22,6 +24,8 @@ from drf_commons.services.export_file import ExportService
 
 from .utils import get_model_name
 
+logger = logging.getLogger(__name__)
+
 
 class FileImportMixin:
     """
@@ -30,12 +34,46 @@ class FileImportMixin:
     Viewsets using this mixin must define:
     - import_file_config: Dict containing FileImportService configuration
     - import_template_name: Name of the template file in static/import-templates/
-    - import_transforms: Optional dict of transform functions (default: {})
+    - import_transforms: Optional dict of transform functions (default: None)
     """
 
     import_file_config = None  # Must be defined by subclass
     import_template_name = None  # Must be defined by subclass
-    import_transforms = {}  # Optional transform functions
+    import_transforms = None  # Optional transform functions
+
+    @staticmethod
+    def parse_bool(value, field_name: str) -> bool:
+        """Parse a request boolean flag from bool/int/str representations."""
+        if value is None:
+            return False
+
+        if isinstance(value, bool):
+            return value
+
+        if isinstance(value, int):
+            if value in (0, 1):
+                return bool(value)
+            raise ValueError(
+                f"'{field_name}' must be a boolean value (true/false, 1/0, yes/no, on/off)."
+            )
+
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            truthy = {"true", "1", "yes", "y", "on"}
+            falsy = {"false", "0", "no", "n", "off", ""}
+
+            if normalized in truthy:
+                return True
+            if normalized in falsy:
+                return False
+
+        raise ValueError(
+            f"'{field_name}' must be a boolean value (true/false, 1/0, yes/no, on/off)."
+        )
+
+    def get_import_transforms(self):
+        """Return a per-request transform mapping."""
+        return dict(self.import_transforms or {})
 
     @action(detail=False, methods=["post"], url_path="import-from-file")
     def import_file(self, request, *args, **kwargs):
@@ -44,8 +82,8 @@ class FileImportMixin:
 
         Expected form data:
         - file: uploaded file (CSV, XLS, XLSX)
-        - append_data: true (append to existing data) OR
-        - replace_data: true (replace all existing data)
+        - append_data: boolean-like value resolving to true (append to existing data) OR
+        - replace_data: boolean-like value resolving to true (replace all existing data)
         """
 
         from drf_commons.services.import_from_file import (
@@ -73,12 +111,21 @@ class FileImportMixin:
             )
 
         # Check operation mode
-        append_data = request.data.get("append_data", "").lower() == "true"
-        replace_data = request.data.get("replace_data", "").lower() == "true"
+        try:
+            append_data = self.parse_bool(request.data.get("append_data"), "append_data")
+            replace_data = self.parse_bool(
+                request.data.get("replace_data"), "replace_data"
+            )
+        except ValueError as exc:
+            return error_response(
+                message="Invalid import mode flag",
+                errors={"mode": [str(exc)]},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         if not (append_data or replace_data):
             return error_response(
-                message="Must specify either 'append_data=true' or 'replace_data=true'",
+                message="Must specify exactly one of append_data or replace_data as true",
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -90,14 +137,6 @@ class FileImportMixin:
 
         try:
             deleted_count = 0
-            # Handle replace_data by clearing existing records
-            if replace_data:
-                with transaction.atomic():
-                    count = self.get_queryset().count()
-                    if count > 0:
-                        deleted_info = self.get_queryset().delete()
-                        deleted_count = deleted_info[0]
-
             # Setup progress tracking
             progress_data = {"processed": 0, "total": 0}
 
@@ -107,11 +146,57 @@ class FileImportMixin:
             # Create and run import service
             service = FileImportService(
                 self.import_file_config,
-                transforms=self.import_transforms,
+                transforms=self.get_import_transforms(),
                 progress_callback=progress_callback,
             )
 
-            result = service.import_file(uploaded_file)
+            if replace_data:
+                with transaction.atomic():
+                    count = self.get_queryset().count()
+                    if count > 0:
+                        deleted_info = self.get_queryset().delete()
+                        deleted_count = deleted_info[0]
+
+                    result = service.import_file(uploaded_file)
+                    summary = result["summary"]
+
+                    # Replace mode is strict all-or-nothing.
+                    # Any failed rows trigger transaction rollback.
+                    if summary.get("failed", 0) > 0:
+                        response_data = {
+                            "import_summary": summary,
+                            "operation": "replace",
+                            "deleted_count": 0,
+                        }
+                        failed_rows = [
+                            row for row in result["rows"] if row["status"] == "failed"
+                        ]
+                        if failed_rows:
+                            response_data["failed_rows"] = failed_rows[
+                                :IMPORT_FAILED_ROWS_DISPLAY_LIMIT
+                            ]
+                            if len(failed_rows) > IMPORT_FAILED_ROWS_DISPLAY_LIMIT:
+                                response_data["additional_failures"] = (
+                                    len(failed_rows)
+                                    - IMPORT_FAILED_ROWS_DISPLAY_LIMIT
+                                )
+
+                        transaction.set_rollback(True)
+                        return error_response(
+                            message=(
+                                "Replace import failed validation and was rolled back. "
+                                f"Failed rows: {summary.get('failed', 0)}"
+                            ),
+                            errors={
+                                "import": [
+                                    "replace_data requires zero failed rows; no changes were committed."
+                                ]
+                            },
+                            data=response_data,
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        )
+            else:
+                result = service.import_file(uploaded_file)
 
             # Format response data
             response_data = {
@@ -140,7 +225,10 @@ class FileImportMixin:
             if summary.get("failed", 0) == 0:
                 message = f"Import completed successfully. Created: {summary.get('created', 0)}, Updated: {summary.get('updated', 0)}"
                 status_code = status.HTTP_201_CREATED
-            elif summary.get("created", 0) + summary.get("updated", 0) > 0:
+            elif (
+                not replace_data
+                and summary.get("created", 0) + summary.get("updated", 0) > 0
+            ):
                 message = f"Import completed with errors. Created: {summary.get('created', 0)}, Updated: {summary.get('updated', 0)}, Failed: {summary.get('failed', 0)}"
                 status_code = status.HTTP_207_MULTI_STATUS
             else:
@@ -297,10 +385,45 @@ class FileExportMixin:
 
     The frontend export dialog sends:
     - file_type: "pdf", "xlsx", or "csv"
-    - includes: comma-separated list of field names to include
+    - includes: list of field names or comma-separated field names
     - column_config: mapping of field names to display labels
     - data: optional pre-filtered data array
     """
+
+    @staticmethod
+    def _normalize_includes(includes_raw):
+        """
+        Normalize includes payload into a deduplicated ordered list of field names.
+
+        Accepts:
+        - list/tuple of strings
+        - comma-separated string
+        """
+        if isinstance(includes_raw, str):
+            candidates = includes_raw.split(",")
+        elif isinstance(includes_raw, (list, tuple)):
+            candidates = includes_raw
+        else:
+            raise TypeError(
+                "Includes must be a list of field names or a comma-separated string."
+            )
+
+        includes = []
+        seen = set()
+
+        for value in candidates:
+            if not isinstance(value, str):
+                raise TypeError("Each include value must be a string.")
+            field_name = value.strip()
+            if not field_name or field_name in seen:
+                continue
+            seen.add(field_name)
+            includes.append(field_name)
+
+        if not includes:
+            raise ValueError("No valid fields specified for export.")
+
+        return includes
 
     @action(detail=False, methods=["post"], url_path="export-as-file")
     def export_data(self, request: Request) -> HttpResponse:
@@ -309,14 +432,14 @@ class FileExportMixin:
 
         Expected request data:
         - file_type: "pdf", "xlsx", or "csv"
-        - includes: comma-separated string of field names
+        - includes: list of field names or comma-separated string
         - column_config: dict mapping field names to display labels
         - data: array of data to export (required)
         """
         try:
             # Parse request parameters
-            file_type = request.data.get("file_type", "xlsx").lower()
-            includes = request.data.get("includes", "")
+            file_type = str(request.data.get("file_type", "xlsx")).lower().strip()
+            includes_raw = request.data.get("includes", [])
             column_config = request.data.get("column_config", {})
             provided_data = request.data.get("data")
             file_titles = request.data.get("file_titles", [])
@@ -328,14 +451,16 @@ class FileExportMixin:
                     errors={
                         "file_type": "Invalid file type. Must be pdf, xlsx, or csv."
                     },
-                    status=status.HTTP_400_BAD_REQUEST,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if not includes:
+            try:
+                includes = self._normalize_includes(includes_raw)
+            except (TypeError, ValueError) as exc:
                 return error_response(
-                    message="No fields specified for export.",
-                    errors={"includes": "No fields specified for export."},
-                    status=status.HTTP_400_BAD_REQUEST,
+                    message="Invalid includes payload.",
+                    errors={"includes": [str(exc)]},
+                    status_code=status.HTTP_400_BAD_REQUEST,
                 )
 
             # Validate that data is provided
@@ -343,7 +468,7 @@ class FileExportMixin:
                 return error_response(
                     message="No data provided for export.",
                     errors={"data": "No data provided for export."},
-                    status=status.HTTP_400_BAD_REQUEST,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                 )
 
             # Initialize export service
@@ -388,9 +513,22 @@ class FileExportMixin:
                     processed_data["document_titles"],
                 )
 
-        except Exception as e:
+        except Exception:
+            error_id = uuid4().hex
+            logger.exception(
+                "File export failed",
+                extra={
+                    "error_id": error_id,
+                    "viewset": self.__class__.__name__,
+                },
+            )
             return error_response(
                 message="Data export failed",
-                errors={"export": [str(e)]},
+                errors={
+                    "export": [
+                        "Unexpected error during export. Please contact support with the provided error id."
+                    ]
+                },
+                error_id=error_id,
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

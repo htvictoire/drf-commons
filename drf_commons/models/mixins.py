@@ -3,10 +3,12 @@ from django.db import models
 from django.utils import timezone
 
 from drf_commons.current_user.utils import get_current_authenticated_user
-from drf_commons.utils.middleware_checker import require_middleware
+from drf_commons.utils.middleware_checker import enforce_middleware
+
+CURRENT_USER_MIDDLEWARE = "drf_commons.middlewares.current_user.CurrentUserMiddleware"
 
 
-class UserActionMixin:
+class UserActionMixin(models.Model):
     """
     Mixin that automatically tracks which user created and last updated a model instance.
 
@@ -15,9 +17,6 @@ class UserActionMixin:
         updated_by: ForeignKey to the user who last updated this instance
     """
 
-    @require_middleware(
-        "drf_commons.middlewares.current_user.CurrentUserMiddleware", "UserActionMixin"
-    )
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -56,14 +55,18 @@ class UserActionMixin:
         Sets created_by only if it's not already set (for new instances).
         Always updates updated_by with current user.
         """
+        enforce_middleware(CURRENT_USER_MIDDLEWARE, "UserActionMixin")
         current_user = get_current_authenticated_user()
         if current_user and current_user.is_authenticated:
             if not self.created_by:
                 self.created_by = current_user
             self.updated_by = current_user
 
+    class Meta:
+        abstract = True
 
-class TimeStampMixin:
+
+class TimeStampMixin(models.Model):
     """
     Mixin that automatically adds creation and modification timestamps.
 
@@ -79,7 +82,10 @@ class TimeStampMixin:
         auto_now=True, help_text="Date and time when this record was last updated"
     )
 
-class SoftDeleteMixin:
+    class Meta:
+        abstract = True
+
+class SoftDeleteMixin(models.Model):
     """
     Mixin that provides soft delete functionality.
 
@@ -126,3 +132,6 @@ class SoftDeleteMixin:
             True if the instance is soft deleted, False otherwise
         """
         return not self.is_active
+
+    class Meta:
+        abstract = True

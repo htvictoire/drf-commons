@@ -49,6 +49,8 @@ class BulkOperationMixin:
 class BulkCreateModelMixin(CreateModelMixin, BulkOperationMixin):
     """
     Bulk create model instances.
+
+    Contract: bulk create is a direct-write path and rejects nested/custom serializer fields.
     """
 
     bulk_batch_size = BULK_OPERATION_BATCH_SIZE
@@ -75,6 +77,8 @@ class BulkCreateModelMixin(CreateModelMixin, BulkOperationMixin):
 class BulkUpdateModelMixin(UpdateModelMixin, BulkOperationMixin):
     """
     Bulk update model instances.
+
+    Contract: bulk update is a direct-write path and rejects nested/custom serializer fields.
     """
 
     bulk_batch_size = BULK_OPERATION_BATCH_SIZE
@@ -82,14 +86,19 @@ class BulkUpdateModelMixin(UpdateModelMixin, BulkOperationMixin):
     def on_update_message(self):
         return super().on_update_message() + " (bulk operation)"
 
-    @action(detail=False, methods=["put"], url_path="bulk-update")
+    @action(detail=False, methods=["put", "patch"], url_path="bulk-update")
     def bulk_update(self, request: Request, *args, **kwargs) -> Response:
-        """Update multiple objects in a single request."""
+        """Update multiple objects in a single request.
+
+        PUT enforces full-update validation semantics.
+        PATCH applies partial-update semantics.
+        """
         try:
             self.validate_bulk_data(request.data)
             kwargs["many_on_update"] = True
+            partial = request.method.upper() == "PATCH"
             with transaction.atomic():
-                return self.update(request, partial=True, *args, **kwargs)
+                return self.update(request, partial=partial, *args, **kwargs)
         except ValidationError as e:
             return error_response(
                 errors=e.detail,
@@ -163,10 +172,9 @@ class BulkDeleteModelMixin(DestroyModelMixin, BulkOperationMixin):
             with transaction.atomic():
                 queryset, found_objects, missing_ids = self._get_queryset_data(ids)
 
-                deleted_count = 0
+                deleted_count = len(found_objects)
                 if found_objects:
-                    deleted_info = queryset.delete()
-                    deleted_count = deleted_info[0]
+                    queryset.delete()
 
             response_data = self._build_base_response_data(
                 ids, missing_ids, deleted_count

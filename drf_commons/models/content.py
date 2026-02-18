@@ -7,8 +7,13 @@ like slug generation, metadata storage, and version tracking.
 
 from typing import Any, List
 
-from django.db import models
+from django.db import IntegrityError, models, transaction
+from django.db.models import F
 from django.utils.text import slugify
+
+
+class VersionConflictError(Exception):
+    """Raised when a versioned model update conflicts with a concurrent write."""
 
 
 class SlugMixin(models.Model):
@@ -28,6 +33,7 @@ class SlugMixin(models.Model):
         blank=True,
         help_text="URL-friendly version of the title/name",
     )
+    slug_conflict_retry_limit = 20
 
     class Meta:
         abstract = True
@@ -49,21 +55,23 @@ class SlugMixin(models.Model):
 
     def generate_slug(self) -> str:
         """
-        Generate a unique slug from the source field.
+        Generate the base deterministic slug candidate.
 
         Returns:
-            Generated unique slug string
+            Base slug candidate string
         """
         base_slug = slugify(self.get_slug_source())
-        slug = base_slug
-        counter = 1
+        if not base_slug:
+            base_slug = "item"
+        return self._build_slug_candidate(base_slug, 0)
 
-        # Ensure uniqueness by appending counter if needed
-        while self.__class__.objects.filter(slug=slug).exclude(pk=self.pk).exists():
-            slug = f"{base_slug}-{counter}"
-            counter += 1
-
-        return slug
+    def _build_slug_candidate(self, base_slug: str, attempt: int) -> str:
+        """Build deterministic slug candidate for retry attempts."""
+        max_length = self._meta.get_field("slug").max_length
+        suffix = "" if attempt == 0 else f"-{attempt}"
+        allowed_base_length = max_length - len(suffix)
+        truncated_base = (base_slug or "item")[:allowed_base_length]
+        return f"{truncated_base}{suffix}"
 
     def save(self, *args, **kwargs) -> None:
         """
@@ -73,9 +81,30 @@ class SlugMixin(models.Model):
             *args: Variable length argument list
             **kwargs: Arbitrary keyword arguments
         """
-        if not self.slug:
-            self.slug = self.generate_slug()
-        super().save(*args, **kwargs)
+        if self.slug:
+            super().save(*args, **kwargs)
+            return
+
+        base_slug = self.generate_slug()
+
+        for attempt in range(self.slug_conflict_retry_limit):
+            self.slug = self._build_slug_candidate(base_slug, attempt)
+            try:
+                with transaction.atomic():
+                    super().save(*args, **kwargs)
+                return
+            except IntegrityError:
+                # Retry when the slug candidate already exists.
+                slug_conflict = self.__class__.objects.filter(slug=self.slug).exclude(
+                    pk=self.pk
+                )
+                if not slug_conflict.exists():
+                    raise
+
+        raise IntegrityError(
+            f"Unable to allocate unique slug for '{base_slug}' after "
+            f"{self.slug_conflict_retry_limit} attempts."
+        )
 
 
 class MetaMixin(models.Model):
@@ -202,12 +231,27 @@ class VersionMixin(models.Model):
             *args: Variable length argument list
             **kwargs: Arbitrary keyword arguments
         """
-        if self.pk and not kwargs.get("skip_version_increment", False):
-            # Only increment version for updates, not creates
-            original = self.__class__.objects.get(pk=self.pk)
-            if original.version == self.version:
-                self.increment_version()
+        skip_version_increment = kwargs.pop("skip_version_increment", False)
 
-        # Remove our custom kwarg before calling super
-        kwargs.pop("skip_version_increment", None)
-        super().save(*args, **kwargs)
+        # Version tracking applies only to persisted rows.
+        is_update = bool(self.pk) and not self._state.adding
+        if not is_update or skip_version_increment:
+            super().save(*args, **kwargs)
+            return
+
+        expected_version = self.version
+        with transaction.atomic():
+            updated_rows = (
+                self.__class__.objects.filter(
+                    pk=self.pk, version=expected_version
+                ).update(version=F("version") + 1)
+            )
+            if updated_rows == 0:
+                raise VersionConflictError(
+                    "Version conflict detected for "
+                    f"{self.__class__.__name__}(pk={self.pk}). "
+                    f"Expected version {expected_version}."
+                )
+
+            self.version = expected_version + 1
+            super().save(*args, **kwargs)

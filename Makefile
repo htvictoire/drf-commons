@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean lint format sort-imports type-check quality test test-verbose coverage build upload upload-test publish publish-test clean-build clean-pyc clean-test all check
+.PHONY: help install install-dev clean lint format sort-imports type-check quality test test-verbose coverage build publish publish-test clean-build clean-pyc clean-test docs docs-clean all check
 
 # Default target
 help:
@@ -21,12 +21,12 @@ help:
 	@echo "  test          Run tests"
 	@echo "  test-verbose  Run tests with verbose output"
 	@echo "  coverage      Run tests with coverage report"
+	@echo "  docs          Build Sphinx documentation (docs/_build/html)"
+	@echo "  docs-clean    Remove Sphinx build output"
 	@echo ""
 	@echo "Build & Release:"
 	@echo "  build         Build distribution packages"
-	@echo "  upload        Upload to PyPI (requires credentials)"
-	@echo "  upload-test   Upload to TestPyPI (requires credentials)"
-	@echo "  publish       Alias for upload"
+	@echo "  publish       Clean, build, confirm, and publish to PyPI"
 	@echo "  publish-test  Clean, build, and publish to TestPyPI"
 	@echo ""
 	@echo "Maintenance:"
@@ -109,24 +109,30 @@ coverage:
 	DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest --cov=drf_commons --cov-report=html --cov-report=term
 	@echo "✓ Coverage report generated"
 
+docs:
+	@echo "Building documentation..."
+	make -C docs html
+	@echo "✓ Documentation generated in docs/_build/html"
+
+docs-clean:
+	@echo "Cleaning documentation build artifacts..."
+	make -C docs clean
+	@echo "✓ Documentation artifacts cleaned"
+
 # Build & Release
 build: clean-build
 	@echo "Building distribution packages..."
-	python setup.py sdist bdist_wheel
+	python -m build
 	@echo "✓ Build completed"
 
-upload: build
+# Publishing
+publish: clean-build
+	@read -p "Publish to PyPI? Type 'Yes' to confirm: " CONFIRM; \
+	if [ "$$CONFIRM" != "Yes" ]; then echo "Publish aborted."; exit 1; fi
+	@echo "Building distribution packages..."
+	python -m build
 	@echo "Uploading to PyPI..."
 	twine upload dist/*
-	@echo "✓ Uploaded to PyPI"
-
-upload-test: build
-	@echo "Uploading to TestPyPI..."
-	twine upload --repository testpypi dist/*
-	@echo "✓ Uploaded to TestPyPI"
-
-# Aliases for publishing
-publish: upload
 	@echo "✓ Published to PyPI"
 
 publish-test: clean-build

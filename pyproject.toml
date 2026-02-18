@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "drf-commons"
-version = "1.0.0"
+version = "1.0.1"
 authors = [
     {name = "Victoire HABAMUNGU", email = "contact@htvictoire.me"}
 ]
-description = "Django REST Framework Common Utilities - Modular apps for enhanced DRF functionality"
+description = "Django REST Framework Common Utilities for production APIs"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
@@ -39,25 +39,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-current_user = []
-debug = []
-filters = []
-pagination = []
-response = []
-serializers = []
-views = []
 export = ["openpyxl>=3.0", "weasyprint>=60.0"]
 import = ["openpyxl>=3.0", "pandas>=1.3"]
-config = ["django-constance>=2.9"]
-all = ["openpyxl>=3.0", "weasyprint>=60.0", "pandas>=1.3", "django-constance>=2.9"]
+debug = ["psutil>=5.9"]
 dev = ["black==25.1.0", "flake8==7.3.0", "isort==6.0.1", "mypy==1.18.1"]
 test = ["pytest==8.4.2", "pytest-cov==7.0.0", "pytest-django==4.11.1", "factory-boy>=3.3"]
 build = ["build>=1.0", "twine>=6.0"]
+docs = ["sphinx>=8.1", "furo>=2024.8.6"]
 
 [project.urls]
 Homepage = "https://github.com/htvictoire/drf-common"
 Repository = "https://github.com/htvictoire/drf-common"
 Issues = "https://github.com/htvictoire/drf-common/issues"
+Documentation = "https://drf-commons.readthedocs.io/"
 
 [tool.setuptools]
 zip-safe = false

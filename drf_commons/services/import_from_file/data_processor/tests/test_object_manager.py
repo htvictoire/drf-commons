@@ -34,3 +34,23 @@ class ObjectManagerTests(DrfCommonTestCase):
         manager = ObjectManager(None)
         # Should handle None gracefully
         self.assertIsNotNone(manager.transforms)
+
+    def test_get_unique_key_returns_tuple_for_complete_kwargs(self):
+        """Unique key builder should return tuple when all fields are present."""
+        manager = ObjectManager({})
+        key = manager.get_unique_key(
+            ["username", "email"], {"username": "u1", "email": "e1@test.com"}
+        )
+        self.assertEqual(key, ("u1", "e1@test.com"))
+
+    def test_get_unique_key_returns_none_when_missing_value(self):
+        """Unique key builder should return None when any unique field is missing/None."""
+        manager = ObjectManager({})
+        self.assertIsNone(
+            manager.get_unique_key(["username", "email"], {"username": "u1"})
+        )
+        self.assertIsNone(
+            manager.get_unique_key(
+                ["username", "email"], {"username": "u1", "email": None}
+            )
+        )

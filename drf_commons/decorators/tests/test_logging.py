@@ -2,6 +2,7 @@
 Tests for logging decorators.
 """
 
+import json
 from unittest.mock import Mock, patch
 
 from django.http import HttpResponse
@@ -110,6 +111,96 @@ class ApiRequestLoggerTests(DrfCommonTestCase):
             "binary data" in str(call) for call in mock_logger.debug.call_args_list
         )
         self.assertTrue(body_call_made)
+
+    @patch("drf_commons.decorators.logging.Categories")
+    def test_api_logging_redacts_sensitive_headers(self, mock_categories):
+        """Sensitive headers should be redacted before logging."""
+        mock_logger = Mock()
+        mock_categories.get_logger.return_value = mock_logger
+
+        @api_request_logger(log_headers=True)
+        def test_view(request):
+            return HttpResponse("OK")
+
+        request = self.factory.get(
+            "/test-endpoint/",
+            HTTP_AUTHORIZATION="Bearer secret-token",
+            HTTP_X_API_KEY="abc123",
+            HTTP_ACCEPT="application/json",
+        )
+        test_view(request)
+
+        headers_log_lines = [
+            call.args[0]
+            for call in mock_logger.debug.call_args_list
+            if call.args and call.args[0].startswith("Headers:")
+        ]
+        self.assertEqual(len(headers_log_lines), 1)
+        headers_log = headers_log_lines[0]
+        self.assertIn("***REDACTED***", headers_log)
+        self.assertNotIn("secret-token", headers_log)
+        self.assertNotIn("abc123", headers_log)
+
+    @patch("drf_commons.decorators.logging.Categories")
+    def test_api_logging_redacts_and_truncates_json_body(self, mock_categories):
+        """JSON body logging should redact sensitive fields and truncate payload."""
+        mock_logger = Mock()
+        mock_categories.get_logger.return_value = mock_logger
+
+        @api_request_logger(log_body=True, max_body_length=80)
+        def test_view(request):
+            return HttpResponse("OK")
+
+        payload = {
+            "username": "alice",
+            "password": "super-secret-password",
+            "profile": {"token": "nested-secret-token"},
+            "notes": "x" * 400,
+        }
+        request = self.factory.post(
+            "/test-endpoint/",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        test_view(request)
+
+        body_log_lines = [
+            call.args[0]
+            for call in mock_logger.debug.call_args_list
+            if call.args and call.args[0].startswith("Request body:")
+        ]
+        self.assertEqual(len(body_log_lines), 1)
+        body_log = body_log_lines[0]
+        self.assertIn("***REDACTED***", body_log)
+        self.assertIn("<truncated", body_log)
+        self.assertNotIn("super-secret-password", body_log)
+        self.assertNotIn("nested-secret-token", body_log)
+
+    @patch("drf_commons.decorators.logging.Categories")
+    def test_api_logging_supports_custom_sanitizer_hook(self, mock_categories):
+        """Custom sanitizer hook should override sanitized payloads."""
+        mock_logger = Mock()
+        mock_categories.get_logger.return_value = mock_logger
+
+        def sanitizer_hook(request, headers, body):
+            return {"headers": {"X-Trace": "custom"}, "body": "<custom-body>"}
+
+        @api_request_logger(
+            log_headers=True, log_body=True, sanitizer_hook=sanitizer_hook
+        )
+        def test_view(request):
+            return HttpResponse("OK")
+
+        request = self.factory.post(
+            "/test-endpoint/",
+            data=json.dumps({"password": "secret"}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer token",
+        )
+        test_view(request)
+
+        mock_logger.debug.assert_any_call("Headers: {'X-Trace': 'custom'}")
+        mock_logger.debug.assert_any_call("Request body: <custom-body>")
 
 
 class LogFunctionCallTests(DrfCommonTestCase):

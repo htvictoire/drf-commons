@@ -8,11 +8,10 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.utils import timezone
 
 from drf_commons.common_tests.base_cases import ModelTestCase
 
-from ..person import AddressMixin, PersonMixin, IdentityMixin
+from ..person import AddressMixin, IdentityMixin
 
 User = get_user_model()
 
@@ -31,13 +30,6 @@ class AddressModelForTesting(AddressMixin):
         app_label = "drf_commons"
 
     name = models.CharField(max_length=100)
-
-
-class PersonMixinModelForTesting(PersonMixin):
-    """Test model using PersonMixin."""
-
-    class Meta:
-        app_label = "drf_commons"
 
 
 class IdentityMixinTests(ModelTestCase):
@@ -209,49 +201,3 @@ class AddressMixinTests(ModelTestCase):
         coordinates = model.get_coordinates()
 
         self.assertIsNone(coordinates)
-
-
-class PersonMixinTests(ModelTestCase):
-    """Tests for PersonMixin model."""
-
-    def test_get_display_info(self):
-        """Test get_display_info returns correct information."""
-        model = PersonMixinModelForTesting(
-            first_name="John",
-            last_name="Doe",
-            email="john.doe@example.com",
-            phone="123-456-7890",
-            city="New York",
-            country="USA",
-        )
-        model.created_at = timezone.now()
-
-        display_info = model.get_display_info()
-
-        self.assertEqual(display_info["full_name"], "John Doe")
-        self.assertEqual(display_info["email"], "john.doe@example.com")
-        self.assertEqual(display_info["phone"], "123-456-7890")
-        self.assertEqual(display_info["short_address"], "New York, USA")
-        self.assertIn("id", display_info)
-        self.assertIn("created_at", display_info)
-
-    def test_get_contact_info_filters_empty_values(self):
-        """Test get_contact_info filters out empty values."""
-        model = PersonMixinModelForTesting(
-            email="john.doe@example.com",
-            phone="",
-        )
-
-        contact_info = model.get_contact_info()
-
-        self.assertEqual(contact_info["email"], "john.doe@example.com")
-        self.assertNotIn("phone", contact_info)
-
-    def test_str_representation(self):
-        """Test string representation includes name and email."""
-        model = PersonMixinModelForTesting(
-            first_name="John", last_name="Doe", email="john.doe@example.com"
-        )
-
-        expected = "John Doe (john.doe@example.com)"
-        self.assertEqual(str(model), expected)

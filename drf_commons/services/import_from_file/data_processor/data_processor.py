@@ -104,3 +104,7 @@ class DataProcessor:
     ):
         """Find existing object based on unique_by fields."""
         return self.object_manager.find_existing_obj(existing_map, unique_by, kwargs)
+
+    def get_unique_key(self, unique_by: List[str], kwargs: Dict[str, Any]):
+        """Build unique tuple key from kwargs, or None when key is incomplete."""
+        return self.object_manager.get_unique_key(unique_by, kwargs)

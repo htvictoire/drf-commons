@@ -9,7 +9,9 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from drf_commons.current_user.utils import get_current_authenticated_user
-from drf_commons.utils.middleware_checker import require_middleware
+from drf_commons.utils.middleware_checker import enforce_middleware
+
+CURRENT_USER_MIDDLEWARE = "drf_commons.middlewares.current_user.CurrentUserMiddleware"
 
 
 class CurrentUserField(models.ForeignKey):
@@ -31,9 +33,6 @@ class CurrentUserField(models.ForeignKey):
         to=django_settings.AUTH_USER_MODEL,
     )
 
-    @require_middleware(
-        "drf_commons.middlewares.current_user.CurrentUserMiddleware", "CurrentUserField"
-    )
     def __init__(self, *args, **kwargs):
         self.on_update = kwargs.pop("on_update", False)
 
@@ -47,7 +46,7 @@ class CurrentUserField(models.ForeignKey):
         self._warn_for_shadowing_args(*args, **kwargs)
 
         if "on_delete" not in kwargs:
-            kwargs["on_delete"] = models.CASCADE
+            kwargs["on_delete"] = models.SET_NULL
 
         if self.on_update:
             kwargs["editable"] = False
@@ -66,6 +65,7 @@ class CurrentUserField(models.ForeignKey):
         return name, path, args, kwargs
 
     def pre_save(self, model_instance, add):
+        enforce_middleware(CURRENT_USER_MIDDLEWARE, "CurrentUserField")
         if self.on_update:
             value = get_current_authenticated_user()
             if value is not None:

@@ -16,7 +16,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "constance",
     "drf_commons",
 ]
 
@@ -124,8 +123,3 @@ LOGGING = {
 }
 
 COMMON_LOCAL_USER_ATTR_NAME = "_current_user"
-CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
-
-CONSTANCE_CONFIG = {
-    "DEFAULT_DOCS_HEADER": ("Test Header", "Default header for documents"),
-}

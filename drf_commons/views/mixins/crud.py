@@ -5,11 +5,30 @@ We don't bind behaviour to http method handlers yet,
 which allows mixin classes to be composed in interesting ways.
 """
 
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
 
 from drf_commons.response.utils import success_response
+from drf_commons.serializers.fields.mixins import ConfigurableRelatedFieldMixin
 from .utils import get_model_name
+
+
+def _collect_unsupported_bulk_serializer_fields(serializer):
+    """Return writable nested/custom fields that are not supported in direct bulk mode."""
+    child = getattr(serializer, "child", serializer)
+    fields = getattr(child, "fields", {})
+    unsupported_fields = []
+
+    for field_name, field in fields.items():
+        if getattr(field, "read_only", False):
+            continue
+        if isinstance(field, ConfigurableRelatedFieldMixin):
+            unsupported_fields.append(field_name)
+            continue
+        if isinstance(field, serializers.BaseSerializer):
+            unsupported_fields.append(field_name)
+
+    return sorted(set(unsupported_fields))
 
 
 class CreateModelMixin:
@@ -18,12 +37,37 @@ class CreateModelMixin:
     """
 
     return_data_on_create = False
+    bulk_direct_serializers_only = True
 
     def on_create_message(self):
         return f"{get_model_name(self)} created successfully"
 
+    def _validate_bulk_direct_serializer_contract(self, serializer, operation):
+        """Reject nested/custom serializer fields in bulk direct mode."""
+        if not self.bulk_direct_serializers_only:
+            return
+
+        unsupported_fields = _collect_unsupported_bulk_serializer_fields(serializer)
+        if not unsupported_fields:
+            return
+
+        raise ValidationError(
+            {
+                "non_field_errors": [
+                    (
+                        f"Bulk {operation} supports direct serializers only. "
+                        f"Unsupported fields: {', '.join(unsupported_fields)}. "
+                        "Use non-bulk endpoints for nested/custom serializer behavior."
+                    )
+                ]
+            }
+        )
+
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data, many=kwargs.get("many_on_create", False))
+        many_on_create = kwargs.get("many_on_create", False)
+        serializer = self.get_serializer(data=request.data, many=many_on_create)
+        if many_on_create:
+            self._validate_bulk_direct_serializer_contract(serializer, "create")
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
 
@@ -57,11 +101,9 @@ class ListModelMixin:
         if not self.append_indexes:
             return results
 
-        results_with_index = []
         for idx, item in enumerate(results, 1):
             item["index"] = idx
-            results_with_index.append(item)
-        return results_with_index
+        return results
 
     def list(self, request, *args, **kwargs):
         paginated = request.query_params.get("paginated", "true").lower() in [
@@ -70,7 +112,7 @@ class ListModelMixin:
             "yes",
         ]
         queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
+        page = self.paginate_queryset(queryset) if paginated else None
 
         if page is not None and paginated:
             serializer = self.get_serializer(page, many=True)
@@ -90,7 +132,7 @@ class ListModelMixin:
             data={
                 "next": None,
                 "previous": None,
-                "count": queryset.count(),
+                "count": len(results),
                 "results": results,
             },
             message=self.on_list_message(),
@@ -120,19 +162,69 @@ class UpdateModelMixin:
     """
 
     return_data_on_update = False
+
     def on_update_message(self):
         return f"{get_model_name(self)} updated successfully"
+
+    def _resolve_bulk_update_instances(self, payload):
+        """Resolve bulk update instances in the exact request-row order."""
+        if not isinstance(payload, list):
+            raise ValidationError("Bulk update payload must be a list of objects.")
+
+        if not payload:
+            raise ValidationError("Bulk update payload cannot be empty.")
+
+        requested_ids = []
+        seen_ids = set()
+
+        for index, item in enumerate(payload):
+            row_number = index + 1
+            if not isinstance(item, dict):
+                raise ValidationError(
+                    {index: f"Row {row_number} must be an object containing an 'id'."}
+                )
+
+            if "id" not in item or item.get("id") in (None, ""):
+                raise ValidationError(
+                    {index: f"Row {row_number} is missing required field 'id'."}
+                )
+
+            row_id = item.get("id")
+            normalized_id = str(row_id)
+            if normalized_id in seen_ids:
+                raise ValidationError(
+                    {index: f"Duplicate id '{row_id}' at row {row_number}."}
+                )
+            seen_ids.add(normalized_id)
+            requested_ids.append(row_id)
+
+        instances = list(self.get_queryset().filter(pk__in=requested_ids))
+        instance_by_id = {str(obj.pk): obj for obj in instances}
+
+        missing_ids = [
+            row_id for row_id in requested_ids if str(row_id) not in instance_by_id
+        ]
+        if missing_ids:
+            raise ValidationError(
+                {
+                    "id": (
+                        "Some rows reference objects that do not exist or are not "
+                        f"accessible in this queryset: {missing_ids}"
+                    )
+                }
+            )
+
+        return [instance_by_id[str(item["id"])] for item in payload]
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)
 
         if kwargs.get("many_on_update", False):
-            # For bulk updates, get instances based on IDs in request data
-            ids = [item.get('id') for item in request.data if item.get('id')]
-            instances = list(self.get_queryset().filter(pk__in=ids))
+            instances = self._resolve_bulk_update_instances(request.data)
             serializer = self.get_serializer(
                 instances, data=request.data, partial=partial, many=True
             )
+            self._validate_bulk_direct_serializer_contract(serializer, "update")
         else:
             # For single updates, get instance from URL
             instance = self.get_object()
@@ -173,10 +265,7 @@ class DestroyModelMixin:
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return success_response(
-            message=self.on_destroy_message(),
-            status_code=status.HTTP_204_NO_CONTENT,
-        )
+        return success_response(message=self.on_destroy_message())
 
     def soft_destroy(self, request, *args, **kwargs):
         """
@@ -191,10 +280,7 @@ class DestroyModelMixin:
             raise ValidationError(
                 f"Soft delete is not supported for {instance.__class__.__name__} model"
             )
-        return success_response(
-            message=self.on_soft_destroy_message(),
-            status_code=status.HTTP_204_NO_CONTENT,
-        )
+        return success_response(message=self.on_soft_destroy_message())
 
     def perform_destroy(self, instance):
         instance.delete()

@@ -3,12 +3,126 @@ Logging decorators for function calls, exceptions, and API requests.
 """
 
 import functools
+import json
 import time
 
 from drf_commons.debug.core.categories import Categories
 
+REDACTED_VALUE = "***REDACTED***"
+DEFAULT_HEADER_REDACT_KEYS = {
+    "authorization",
+    "proxy-authorization",
+    "cookie",
+    "set-cookie",
+    "x-api-key",
+    "x-auth-token",
+}
+DEFAULT_BODY_REDACT_KEYS = {
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "access_token",
+    "refresh_token",
+    "api_key",
+    "apikey",
+    "client_secret",
+}
+DEFAULT_MAX_BODY_LENGTH = 2048
 
-def api_request_logger(log_body=False, log_headers=False):
+
+def _normalize_key_set(values):
+    """Normalize key names for case-insensitive matching."""
+    normalized = set()
+    for value in values or []:
+        key = str(value).strip().lower()
+        if key:
+            normalized.add(key)
+    return normalized
+
+
+def _truncate_text(value, max_length):
+    """Truncate long log payloads to keep logs bounded."""
+    if max_length is None or len(value) <= max_length:
+        return value
+    overflow = len(value) - max_length
+    return f"{value[:max_length]}... <truncated {overflow} chars>"
+
+
+def _redact_json_payload(payload, redacted_keys):
+    """Recursively redact sensitive keys from JSON-like payloads."""
+    if isinstance(payload, dict):
+        redacted = {}
+        for key, value in payload.items():
+            if str(key).lower() in redacted_keys:
+                redacted[key] = REDACTED_VALUE
+            else:
+                redacted[key] = _redact_json_payload(value, redacted_keys)
+        return redacted
+
+    if isinstance(payload, list):
+        return [_redact_json_payload(item, redacted_keys) for item in payload]
+
+    return payload
+
+
+def _sanitize_headers(headers, redacted_headers=None, header_allowlist=None):
+    """Sanitize request headers using allowlist and denylist controls."""
+    header_map = dict(headers or {})
+    redacted_keys = DEFAULT_HEADER_REDACT_KEYS | _normalize_key_set(redacted_headers)
+    allowlist = _normalize_key_set(header_allowlist)
+    use_allowlist = bool(allowlist)
+    sanitized = {}
+
+    for key, value in header_map.items():
+        key_lower = str(key).lower()
+        if use_allowlist and key_lower not in allowlist:
+            continue
+        sanitized[key] = REDACTED_VALUE if key_lower in redacted_keys else value
+
+    return sanitized
+
+
+def _sanitize_request_body(
+    request, redacted_body_keys=None, max_body_length=DEFAULT_MAX_BODY_LENGTH
+):
+    """Sanitize request body with JSON key redaction and size truncation."""
+    if not hasattr(request, "body"):
+        return "<body unavailable>"
+
+    raw_body = request.body
+    if not raw_body:
+        return ""
+
+    if isinstance(raw_body, (bytes, bytearray)):
+        try:
+            raw_text = raw_body.decode("utf-8")
+        except UnicodeDecodeError:
+            return "<binary data>"
+    else:
+        raw_text = str(raw_body)
+
+    redacted_keys = DEFAULT_BODY_REDACT_KEYS | _normalize_key_set(redacted_body_keys)
+    try:
+        parsed_body = json.loads(raw_text)
+    except (TypeError, ValueError):
+        return "<non-json payload redacted>"
+
+    sanitized = _redact_json_payload(parsed_body, redacted_keys)
+    rendered = json.dumps(sanitized, ensure_ascii=False)
+    return _truncate_text(rendered, max_body_length)
+
+
+def api_request_logger(
+    log_body=False,
+    log_headers=False,
+    *,
+    redacted_headers=None,
+    header_allowlist=None,
+    redacted_body_keys=None,
+    max_body_length=DEFAULT_MAX_BODY_LENGTH,
+    sanitizer_hook=None,
+):
     """
     Log API request and response details.
 
@@ -18,6 +132,11 @@ def api_request_logger(log_body=False, log_headers=False):
     Args:
         log_body (bool): Include request body in debug logs
         log_headers (bool): Include request headers in debug logs
+        redacted_headers (Iterable[str]): Additional header names to redact
+        header_allowlist (Iterable[str]): Optional header names to include in logs
+        redacted_body_keys (Iterable[str]): Additional JSON body keys to redact
+        max_body_length (int): Maximum body payload length to log
+        sanitizer_hook (callable): Optional hook to override sanitized payloads
 
     Returns:
         Decorated view function with request/response logging
@@ -30,16 +149,43 @@ def api_request_logger(log_body=False, log_headers=False):
 
             logger.info(f"API {request.method} {request.path}")
 
+            sanitized_headers = None
+            sanitized_body = None
+
             if log_headers:
-                logger.debug(f"Headers: {dict(request.headers)}")
+                sanitized_headers = _sanitize_headers(
+                    request.headers,
+                    redacted_headers=redacted_headers,
+                    header_allowlist=header_allowlist,
+                )
 
             logger.debug(f"Query params: {dict(request.GET)}")
 
-            if log_body and hasattr(request, "body"):
+            if log_body:
+                sanitized_body = _sanitize_request_body(
+                    request,
+                    redacted_body_keys=redacted_body_keys,
+                    max_body_length=max_body_length,
+                )
+
+            if sanitizer_hook and (log_headers or log_body):
                 try:
-                    logger.debug(f"Request body: {request.body.decode('utf-8')}")
-                except (UnicodeDecodeError, AttributeError):
-                    logger.debug("Request body: <binary data>")
+                    overridden = sanitizer_hook(
+                        request=request, headers=sanitized_headers, body=sanitized_body
+                    )
+                    if isinstance(overridden, dict):
+                        sanitized_headers = overridden.get("headers", sanitized_headers)
+                        sanitized_body = overridden.get("body", sanitized_body)
+                    elif isinstance(overridden, tuple) and len(overridden) == 2:
+                        sanitized_headers, sanitized_body = overridden
+                except Exception:
+                    logger.exception("api_request_logger sanitizer_hook failed")
+
+            if log_headers:
+                logger.debug(f"Headers: {sanitized_headers}")
+
+            if log_body:
+                logger.debug(f"Request body: {sanitized_body}")
 
             response = view_func(request, *args, **kwargs)
 

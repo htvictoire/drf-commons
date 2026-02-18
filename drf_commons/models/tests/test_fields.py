@@ -7,7 +7,9 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.conf import settings as django_settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db import models
+from django.test import override_settings
 
 from drf_commons.common_tests.base_cases import ModelTestCase
 from drf_commons.common_tests.factories import UserFactory
@@ -28,7 +30,7 @@ class CurrentUserFieldTests(ModelTestCase):
         self.assertFalse(field.on_update)
         self.assertTrue(field.null)
         self.assertEqual(field.remote_field.model, django_settings.AUTH_USER_MODEL)
-        self.assertEqual(field.remote_field.on_delete, models.CASCADE)
+        self.assertEqual(field.remote_field.on_delete, models.SET_NULL)
 
     def test_field_initialization_with_on_update(self):
         """Test CurrentUserField initialization with on_update=True."""
@@ -40,7 +42,13 @@ class CurrentUserFieldTests(ModelTestCase):
 
     def test_field_initialization_with_custom_on_delete(self):
         """Test CurrentUserField initialization with custom on_delete."""
-        field = CurrentUserField(on_delete=models.SET_NULL)
+        field = CurrentUserField(on_delete=models.CASCADE)
+
+        self.assertEqual(field.remote_field.on_delete, models.CASCADE)
+
+    def test_field_on_update_uses_safe_default_on_delete(self):
+        """Test CurrentUserField keeps SET_NULL default even when on_update=True."""
+        field = CurrentUserField(on_update=True)
 
         self.assertEqual(field.remote_field.on_delete, models.SET_NULL)
 
@@ -84,7 +92,7 @@ class CurrentUserFieldTests(ModelTestCase):
         field = CurrentUserField()
         _, path, _, kwargs = field.deconstruct()
 
-        self.assertEqual(path, "models.fields.CurrentUserField")
+        self.assertEqual(path, "drf_commons.models.fields.CurrentUserField")
         self.assertNotIn("on_update", kwargs)
 
     def test_deconstruct_with_on_update(self):
@@ -92,12 +100,12 @@ class CurrentUserFieldTests(ModelTestCase):
         field = CurrentUserField(on_update=True)
         _, path, _, kwargs = field.deconstruct()
 
-        self.assertEqual(path, "models.fields.CurrentUserField")
+        self.assertEqual(path, "drf_commons.models.fields.CurrentUserField")
         self.assertTrue(kwargs["on_update"])
         self.assertNotIn("editable", kwargs)
         self.assertNotIn("blank", kwargs)
 
-    @patch("models.fields.get_current_authenticated_user")
+    @patch("drf_commons.models.fields.get_current_authenticated_user")
     def test_pre_save_without_on_update(self, mock_get_user):
         """Test pre_save behavior when on_update=False."""
         user = UserFactory()
@@ -117,7 +125,7 @@ class CurrentUserFieldTests(ModelTestCase):
             field.pre_save(instance, add=True)
             mock_parent.assert_called_once_with(instance, True)
 
-    @patch("models.fields.get_current_authenticated_user")
+    @patch("drf_commons.models.fields.get_current_authenticated_user")
     def test_pre_save_with_on_update(self, mock_get_user):
         """Test pre_save behavior when on_update=True."""
         user = UserFactory()
@@ -136,7 +144,7 @@ class CurrentUserFieldTests(ModelTestCase):
         self.assertEqual(result, user.pk)
         self.assertEqual(getattr(instance, field.attname), user.pk)
 
-    @patch("models.fields.get_current_authenticated_user")
+    @patch("drf_commons.models.fields.get_current_authenticated_user")
     def test_pre_save_with_on_update_no_user(self, mock_get_user):
         """Test pre_save behavior when on_update=True and no current user."""
         mock_get_user.return_value = None
@@ -186,3 +194,16 @@ class CurrentUserFieldTests(ModelTestCase):
         self.assertIsInstance(field, models.ForeignKey)
         self.assertEqual(field.remote_field.model, django_settings.AUTH_USER_MODEL)
         self.assertFalse(field.on_update)
+
+    @override_settings(MIDDLEWARE=["django.middleware.security.SecurityMiddleware"])
+    def test_pre_save_requires_middleware_at_runtime(self):
+        """Missing middleware raises when the field behavior executes."""
+        field = CurrentUserField(on_update=True)
+        field.set_attributes_from_name("updated_by")
+
+        class TestModel:
+            pass
+
+        instance = TestModel()
+        with self.assertRaises(ImproperlyConfigured):
+            field.pre_save(instance, add=True)
