@@ -53,8 +53,6 @@ class BulkCreateModelMixin(CreateModelMixin, BulkOperationMixin):
     Contract: bulk create is a direct-write path and rejects nested/custom serializer fields.
     """
 
-    bulk_batch_size = BULK_OPERATION_BATCH_SIZE
-
     def on_create_message(self):
         return super().on_create_message() + " (bulk operation)"
 
@@ -80,8 +78,6 @@ class BulkUpdateModelMixin(UpdateModelMixin, BulkOperationMixin):
 
     Contract: bulk update is a direct-write path and rejects nested/custom serializer fields.
     """
-
-    bulk_batch_size = BULK_OPERATION_BATCH_SIZE
 
     def on_update_message(self):
         return super().on_update_message() + " (bulk operation)"
@@ -111,8 +107,6 @@ class BulkDeleteModelMixin(DestroyModelMixin, BulkOperationMixin):
     """
     Bulk delete model instances.
     """
-
-    bulk_batch_size = BULK_OPERATION_BATCH_SIZE
 
     def _validate_delete_ids(self, ids, operation_name="delete"):
         """Common validation for bulk delete operations."""

@@ -71,6 +71,11 @@ class BulkUpdateModelMixinTests(ViewTestCase):
         mixin = BulkUpdateModelMixin()
         self.assertTrue(hasattr(mixin, "bulk_update"))
 
+    def test_bulk_update_mixin_has_bulk_contract_validator(self):
+        """Bulk update mixin should expose direct-serializer contract validation."""
+        mixin = BulkUpdateModelMixin()
+        self.assertTrue(hasattr(mixin, "_validate_bulk_direct_serializer_contract"))
+
 
 class BulkDeleteModelMixinTests(ViewTestCase):
     """Tests for BulkDeleteModelMixin."""

@@ -5,63 +5,22 @@ We don't bind behaviour to http method handlers yet,
 which allows mixin classes to be composed in interesting ways.
 """
 
-from rest_framework import serializers, status
+from rest_framework import status
 from rest_framework.exceptions import ValidationError
 
 from drf_commons.response.utils import success_response
-from drf_commons.serializers.fields.mixins import ConfigurableRelatedFieldMixin
+from .shared import BulkDirectSerializerContractMixin
 from .utils import get_model_name
 
 
-def _collect_unsupported_bulk_serializer_fields(serializer):
-    """Return writable nested/custom fields that are not supported in direct bulk mode."""
-    child = getattr(serializer, "child", serializer)
-    fields = getattr(child, "fields", {})
-    unsupported_fields = []
-
-    for field_name, field in fields.items():
-        if getattr(field, "read_only", False):
-            continue
-        if isinstance(field, ConfigurableRelatedFieldMixin):
-            unsupported_fields.append(field_name)
-            continue
-        if isinstance(field, serializers.BaseSerializer):
-            unsupported_fields.append(field_name)
-
-    return sorted(set(unsupported_fields))
-
-
-class CreateModelMixin:
+class CreateModelMixin(BulkDirectSerializerContractMixin):
     """
     Create a model instance.
     """
 
     return_data_on_create = False
-    bulk_direct_serializers_only = True
-
     def on_create_message(self):
         return f"{get_model_name(self)} created successfully"
-
-    def _validate_bulk_direct_serializer_contract(self, serializer, operation):
-        """Reject nested/custom serializer fields in bulk direct mode."""
-        if not self.bulk_direct_serializers_only:
-            return
-
-        unsupported_fields = _collect_unsupported_bulk_serializer_fields(serializer)
-        if not unsupported_fields:
-            return
-
-        raise ValidationError(
-            {
-                "non_field_errors": [
-                    (
-                        f"Bulk {operation} supports direct serializers only. "
-                        f"Unsupported fields: {', '.join(unsupported_fields)}. "
-                        "Use non-bulk endpoints for nested/custom serializer behavior."
-                    )
-                ]
-            }
-        )
 
     def create(self, request, *args, **kwargs):
         many_on_create = kwargs.get("many_on_create", False)
@@ -156,7 +115,7 @@ class RetrieveModelMixin:
         )
 
 
-class UpdateModelMixin:
+class UpdateModelMixin(BulkDirectSerializerContractMixin):
     """
     Update a model instance.
     """

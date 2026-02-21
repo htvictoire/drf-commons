@@ -68,6 +68,16 @@ class BulkUserViewSet(
     serializer_class = UserBulkSerializer
 
 
+class BulkUpdateOnlyUserViewSet(
+    viewsets.GenericViewSet,
+    BulkUpdateModelMixin,
+):
+    """ViewSet exposing only bulk update to verify mixin independence."""
+
+    queryset = User.objects.all()
+    serializer_class = UserBulkSerializer
+
+
 class ImportExportUserViewSet(
     viewsets.GenericViewSet,
     ListModelMixin,
@@ -104,6 +114,7 @@ class ImportExportUserViewSet(
 router = DefaultRouter()
 router.register(r'standard-users', StandardUserViewSet, basename='standard-user')
 router.register(r'bulk-users', BulkUserViewSet, basename='bulk-user')
+router.register(r'bulk-update-only-users', BulkUpdateOnlyUserViewSet, basename='bulk-update-only-user')
 router.register(r'import-export-users', ImportExportUserViewSet, basename='import-export-user')
 
 test_urlpatterns = [
@@ -290,6 +301,28 @@ class BulkOperationTests(APITestCase):
 
         user1.refresh_from_db()
         self.assertEqual(user1.email, "dup_old1@test.com")
+
+    def test_bulk_update_only_viewset_works_without_create_mixin(self):
+        """Bulk update endpoint should not require CreateModelMixin in the MRO."""
+        user1 = UserFactory(username="bulk_only_update_1", email="bulk_only_old1@test.com")
+        user2 = UserFactory(username="bulk_only_update_2", email="bulk_only_old2@test.com")
+
+        payload = [
+            {"id": user1.id, "email": "bulk_only_new1@test.com"},
+            {"id": user2.id, "email": "bulk_only_new2@test.com"},
+        ]
+
+        response = self.client.patch(
+            "/api/bulk-update-only-users/bulk-update/",
+            payload,
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        user1.refresh_from_db()
+        user2.refresh_from_db()
+        self.assertEqual(user1.email, "bulk_only_new1@test.com")
+        self.assertEqual(user2.email, "bulk_only_new2@test.com")
 
     def test_bulk_delete_operation(self):
         """Test bulk delete operation through API."""

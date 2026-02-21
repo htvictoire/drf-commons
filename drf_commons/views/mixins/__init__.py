@@ -32,6 +32,7 @@ from .import_export import (
     FileExportMixin,
     FileImportMixin,
 )
+from .shared import BulkDirectSerializerContractMixin
 
 __all__ = [
     # CRUD mixins
@@ -45,6 +46,7 @@ __all__ = [
     "BulkCreateModelMixin",
     "BulkUpdateModelMixin",
     "BulkDeleteModelMixin",
+    "BulkDirectSerializerContractMixin",
     # Import/Export mixins
     "FileImportMixin",
     "FileExportMixin",
