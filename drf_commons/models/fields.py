@@ -9,9 +9,6 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from drf_commons.current_user.utils import get_current_authenticated_user
-from drf_commons.utils.middleware_checker import enforce_middleware
-
-CURRENT_USER_MIDDLEWARE = "drf_commons.middlewares.current_user.CurrentUserMiddleware"
 
 
 class CurrentUserField(models.ForeignKey):
@@ -65,7 +62,6 @@ class CurrentUserField(models.ForeignKey):
         return name, path, args, kwargs
 
     def pre_save(self, model_instance, add):
-        enforce_middleware(CURRENT_USER_MIDDLEWARE, "CurrentUserField")
         if self.on_update:
             value = get_current_authenticated_user()
             if value is not None:

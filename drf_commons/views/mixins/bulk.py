@@ -78,6 +78,7 @@ class BulkUpdateModelMixin(UpdateModelMixin, BulkOperationMixin):
 
     Contract: bulk update is a direct-write path and rejects nested/custom serializer fields.
     """
+    use_save_on_bulk_update = False
 
     def on_update_message(self):
         return super().on_update_message() + " (bulk operation)"

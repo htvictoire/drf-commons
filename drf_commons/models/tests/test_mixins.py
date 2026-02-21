@@ -5,7 +5,6 @@ Tests for model mixins.
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ImproperlyConfigured
 from django.db import models
 from django.test import override_settings
 from django.utils import timezone
@@ -176,7 +175,7 @@ class SoftDeleteMixinTests(ModelTestCase):
             model.soft_delete()
 
             self.assertEqual(model.deleted_at, mock_time)
-            mock_save.assert_called_once_with(update_fields=["deleted_at", "is_active"])
+            mock_save.assert_called_once_with()
 
     @patch("drf_commons.models.mixins.get_current_authenticated_user")
     def test_user_action_mixin_save_calls_set_user_method(self, mock_get_user):
@@ -258,7 +257,7 @@ class SoftDeleteMixinTests(ModelTestCase):
         model.restore()
 
         self.assertIsNone(model.deleted_at)
-        mock_save.assert_called_once_with(update_fields=["deleted_at", "is_active"])
+        mock_save.assert_called_once_with()
 
     def test_soft_delete_restore_cycle(self):
         """Test complete soft delete and restore cycle."""
@@ -296,8 +295,7 @@ class SoftDeleteMixinTests(ModelTestCase):
         self.assertEqual(model.name, "test")
 
     @override_settings(MIDDLEWARE=["django.middleware.security.SecurityMiddleware"])
-    def test_user_action_middleware_checked_on_save_path(self):
-        """Middleware requirement is enforced when attribution logic executes."""
+    def test_user_action_no_runtime_middleware_check_on_save_path(self):
+        """Attribution logic does not enforce middleware at save-time."""
         model = UserActionModelForTesting(name="test")
-        with self.assertRaises(ImproperlyConfigured):
-            model.set_created_by_and_updated_by()
+        model.set_created_by_and_updated_by()

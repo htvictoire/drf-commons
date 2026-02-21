@@ -6,7 +6,11 @@ These serializers handle multiple instances efficiently with single database cal
 """
 
 from django.db import transaction
+from django.core.exceptions import FieldDoesNotExist
+from django.utils import timezone
 from rest_framework import serializers
+
+from drf_commons.current_user.utils import get_current_authenticated_user
 
 from .fields.mixins import ConfigurableRelatedFieldMixin, DeferredRelatedOperation
 
@@ -18,6 +22,30 @@ class BulkUpdateListSerializer(serializers.ListSerializer):
     Contract: this serializer performs direct attribute assignment + bulk_update and
     intentionally rejects deferred nested relation writes.
     """
+
+    def _should_use_save_on_bulk_update(self):
+        view = self.context.get("view")
+        return bool(getattr(view, "use_save_on_bulk_update", False))
+
+    @staticmethod
+    def _model_has_field(model_class, field_name):
+        try:
+            model_class._meta.get_field(field_name)
+            return True
+        except FieldDoesNotExist:
+            return False
+
+    def _apply_audit_defaults_if_missing(
+        self, inst, item_data, has_updated_at, has_updated_by, now_value, current_user
+    ):
+        """Populate audit defaults for direct bulk_update when missing in payload."""
+        if has_updated_at and "updated_at" not in item_data:
+            item_data["updated_at"] = now_value
+            setattr(inst, "updated_at", item_data["updated_at"])
+
+        if has_updated_by and "updated_by" not in item_data and current_user is not None:
+            item_data["updated_by"] = current_user
+            setattr(inst, "updated_by", current_user)
 
     @staticmethod
     def _contains_deferred_related_operation(value):
@@ -48,11 +76,38 @@ class BulkUpdateListSerializer(serializers.ListSerializer):
                 "Each payload row must resolve to exactly one instance."
             )
 
+        model_class = instances[0].__class__ if instances else None
+        use_save_on_bulk_update = self._should_use_save_on_bulk_update()
+        has_updated_at = (
+            (not use_save_on_bulk_update)
+            and model_class is not None
+            and self._model_has_field(model_class, "updated_at")
+        )
+        has_updated_by = (
+            (not use_save_on_bulk_update)
+            and model_class is not None
+            and self._model_has_field(model_class, "updated_by")
+        )
+        now_value = timezone.now() if has_updated_at else None
+        current_user = get_current_authenticated_user() if has_updated_by else None
+
         # Match instances with validated data by position
         instances_to_update = []
         update_fields = set()
 
         for idx, (inst, item_data) in enumerate(zip(instances, validated_data)):
+            item_data = dict(item_data)
+
+            if not use_save_on_bulk_update and model_class is not None:
+                self._apply_audit_defaults_if_missing(
+                    inst,
+                    item_data,
+                    has_updated_at,
+                    has_updated_by,
+                    now_value,
+                    current_user,
+                )
+
             for attr, value in item_data.items():
                 if self._contains_deferred_related_operation(value):
                     raise serializers.ValidationError(
@@ -65,12 +120,14 @@ class BulkUpdateListSerializer(serializers.ListSerializer):
                     )
                 setattr(inst, attr, value)
                 update_fields.add(attr)
+
+            if use_save_on_bulk_update:
+                inst.save()
             instances_to_update.append(inst)
 
-        # Perform bulk update
-        if instances_to_update and update_fields:
+        # Perform bulk update when direct-write mode is enabled.
+        if not use_save_on_bulk_update and instances_to_update and update_fields:
             # Use the model class from the first instance
-            model_class = instances_to_update[0].__class__
             model_class.objects.bulk_update(instances_to_update, list(update_fields))
 
         return instances_to_update

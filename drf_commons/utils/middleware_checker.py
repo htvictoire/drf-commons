@@ -7,6 +7,7 @@ before using features that depend on them.
 
 from functools import wraps
 
+from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
@@ -79,3 +80,30 @@ def require_middleware(middleware_path, feature_name):
 def enforce_middleware(middleware_path, feature_name):
     """Runtime middleware requirement check for feature execution paths."""
     MiddlewareChecker(middleware_path, feature_name)
+
+
+def _model_uses_current_user_features(model):
+    """Return True if model uses UserActionMixin or CurrentUserField."""
+    from drf_commons.models.fields import CurrentUserField
+    from drf_commons.models.mixins import UserActionMixin
+
+    if issubclass(model, UserActionMixin):
+        return True
+
+    for field in model._meta.get_fields():
+        if isinstance(field, CurrentUserField):
+            return True
+
+    return False
+
+
+def enforce_current_user_middleware_if_used(middleware_path):
+    """
+    Enforce current-user middleware only when loaded models use related features.
+    """
+    uses_current_user_features = any(
+        _model_uses_current_user_features(model) for model in apps.get_models()
+    )
+    if uses_current_user_features:
+        enforce_middleware(middleware_path, "UserActionMixin/CurrentUserField")
+    return uses_current_user_features

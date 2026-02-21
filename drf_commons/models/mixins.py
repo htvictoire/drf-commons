@@ -3,9 +3,6 @@ from django.db import models
 from django.utils import timezone
 
 from drf_commons.current_user.utils import get_current_authenticated_user
-from drf_commons.utils.middleware_checker import enforce_middleware
-
-CURRENT_USER_MIDDLEWARE = "drf_commons.middlewares.current_user.CurrentUserMiddleware"
 
 
 class UserActionMixin(models.Model):
@@ -55,7 +52,6 @@ class UserActionMixin(models.Model):
         Sets created_by only if it's not already set (for new instances).
         Always updates updated_by with current user.
         """
-        enforce_middleware(CURRENT_USER_MIDDLEWARE, "UserActionMixin")
         current_user = get_current_authenticated_user()
         if current_user and current_user.is_authenticated:
             if not self.created_by:
@@ -113,7 +109,7 @@ class SoftDeleteMixin(models.Model):
         """
         self.deleted_at = timezone.now()
         self.is_active = False
-        self.save(update_fields=["deleted_at", "is_active"])
+        self.save()
 
     def restore(self) -> None:
         """
@@ -121,7 +117,7 @@ class SoftDeleteMixin(models.Model):
         """
         self.deleted_at = None
         self.is_active = True
-        self.save(update_fields=["deleted_at", "is_active"])
+        self.save()
 
     @property
     def is_deleted(self) -> bool:

@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.conf import settings as django_settings
-from django.core.exceptions import ImproperlyConfigured
 from django.db import models
 from django.test import override_settings
 
@@ -196,8 +195,8 @@ class CurrentUserFieldTests(ModelTestCase):
         self.assertFalse(field.on_update)
 
     @override_settings(MIDDLEWARE=["django.middleware.security.SecurityMiddleware"])
-    def test_pre_save_requires_middleware_at_runtime(self):
-        """Missing middleware raises when the field behavior executes."""
+    def test_pre_save_does_not_check_middleware_at_runtime(self):
+        """pre_save behavior runs without runtime middleware enforcement."""
         field = CurrentUserField(on_update=True)
         field.set_attributes_from_name("updated_by")
 
@@ -205,5 +204,5 @@ class CurrentUserFieldTests(ModelTestCase):
             pass
 
         instance = TestModel()
-        with self.assertRaises(ImproperlyConfigured):
-            field.pre_save(instance, add=True)
+        value = field.pre_save(instance, add=True)
+        self.assertIsNone(value)
