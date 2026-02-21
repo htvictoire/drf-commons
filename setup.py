@@ -11,7 +11,7 @@ def get_version():
     version = {}
     with open(os.path.join(this_directory, "drf_commons", "__init__.py")) as f:
         exec(f.read(), version)
-    return version.get("__version__", "1.0.1")
+    return version.get("__version__")
 
 
 setup(
