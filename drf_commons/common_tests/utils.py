@@ -8,40 +8,40 @@ import logging
 from contextlib import contextmanager
 from unittest.mock import patch
 
-import openpyxl
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import HttpResponse
 from django.test import override_settings
 
-from drf_commons.current_user.utils import USER_ATTR_NAME, _set_current_user, _thread_locals, get_current_user
+from drf_commons.current_user.utils import (
+    _clear_current_user,
+    _set_current_user,
+    get_current_user,
+)
 from drf_commons.common_conf.settings import clear_settings_cache
 
 
 def mock_current_user(user):
-    """Set current user in thread-local storage for testing."""
+    """Set current user in context-local storage for testing."""
     _set_current_user(user)
 
 
 @contextmanager
 def temporary_current_user(user):
     """Context manager for temporary current user."""
-    original_user = None
+    original_user = get_current_user()
     try:
-        original_user = get_current_user()
         mock_current_user(user)
         yield
     finally:
-        if original_user:
+        if original_user is not None:
             mock_current_user(original_user)
+        else:
+            clear_current_user()
 
 
 def clear_current_user():
-    """Clear current user from thread-local storage for testing."""
-    try:
-        if hasattr(_thread_locals, USER_ATTR_NAME):
-            delattr(_thread_locals, USER_ATTR_NAME)
-    except ImportError:
-        pass
+    """Clear current user from context-local storage for testing."""
+    _clear_current_user()
 
 
 def create_test_file(
@@ -67,6 +67,8 @@ def create_csv_file(headers, rows, filename="test.csv"):
 
 def create_excel_file(headers, rows, filename="test.xlsx"):
     """Create Excel file for import testing."""
+    import openpyxl
+
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
 

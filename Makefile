@@ -1,4 +1,6 @@
-.PHONY: help install install-dev clean lint format sort-imports type-check quality test test-verbose coverage build publish publish-test clean-build clean-pyc clean-test docs docs-clean all check
+.PHONY: help install install-dev install-test install-testing clean lint format sort-imports type-check quality test test-verbose coverage build publish publish-test clean-build clean-pyc clean-test docs docs-clean all check
+
+PYTHON ?= python
 
 # Default target
 help:
@@ -40,11 +42,15 @@ help:
 
 # Setup & Installation
 install:
-	pip install -e .
+	$(PYTHON) -m pip install -e .
 
 install-dev:
-	pip install -e .[dev,test,build,all]
+	$(PYTHON) -m pip install -e .[dev,test,build]
 	@echo "Development environment ready!"
+
+install-test install-testing:
+	$(PYTHON) -m pip install -e .[test,import,export]
+	@echo "Testing dependencies installed!"
 
 # Code Quality
 format:
@@ -80,19 +86,19 @@ test:
 			PACKAGE_PATH=$$(echo "$$BASE_PATH" | sed 's/\/test_.*//' ); \
 			TEST_FILE=$$(echo "$$BASE_PATH" | sed 's/.*\///' ); \
 			if [ -f "$$PACKAGE_PATH/tests/$$TEST_FILE.py" ]; then \
-				DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest "$$PACKAGE_PATH/tests/$$TEST_FILE.py"; \
+				DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings $(PYTHON) -m pytest "$$PACKAGE_PATH/tests/$$TEST_FILE.py"; \
 			else \
 				echo "Error: $$PACKAGE_PATH/tests/$$TEST_FILE.py not found"; exit 1; \
 			fi; \
 		elif [ -d "$$BASE_PATH/tests" ] && [ -n "$$(find "$$BASE_PATH/tests" -name "test_*.py" -o -name "*_test.py" | head -1)" ]; then \
-			DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest "$$BASE_PATH/"; \
+			DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings $(PYTHON) -m pytest "$$BASE_PATH/"; \
 		elif [ -d "$$BASE_PATH" ]; then \
-			DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest "$$BASE_PATH/"; \
+			DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings $(PYTHON) -m pytest "$$BASE_PATH/"; \
 		else \
 			echo "Error: $$BASE_PATH not found"; exit 1; \
 		fi; \
 	else \
-		DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest; \
+		DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings $(PYTHON) -m pytest; \
 	fi
 	@echo "✓ Tests passed"
 
@@ -101,12 +107,12 @@ test:
 
 test-verbose:
 	@echo "Running tests with verbose output..."
-	DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest -v
+	DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings $(PYTHON) -m pytest -v
 	@echo "✓ Tests passed"
 
 coverage:
 	@echo "Running tests with coverage..."
-	DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings python -m pytest --cov=drf_commons --cov-report=html --cov-report=term
+	DJANGO_SETTINGS_MODULE=drf_commons.common_conf.django_settings $(PYTHON) -m pytest --cov=drf_commons --cov-report=html --cov-report=term
 	@echo "✓ Coverage report generated"
 
 docs:
@@ -122,7 +128,7 @@ docs-clean:
 # Build & Release
 build: clean-build
 	@echo "Building distribution packages..."
-	python -m build
+	$(PYTHON) -m build
 	@echo "✓ Build completed"
 
 # Publishing
@@ -130,7 +136,7 @@ publish: clean-build
 	@read -p "Publish to PyPI? Type 'Yes' to confirm: " CONFIRM; \
 	if [ "$$CONFIRM" != "Yes" ]; then echo "Publish aborted."; exit 1; fi
 	@echo "Building distribution packages..."
-	python -m build
+	$(PYTHON) -m build
 	@echo "Uploading to PyPI..."
 	twine upload dist/*
 	@echo "✓ Published to PyPI"
@@ -138,7 +144,7 @@ publish: clean-build
 publish-test: clean-build
 	@echo "Cleaning build artifacts..."
 	@echo "Building distribution packages..."
-	python -m build
+	$(PYTHON) -m build
 	@echo "Uploading to TestPyPI..."
 	twine upload --repository testpypi dist/*
 	@echo "✓ Published to TestPyPI"

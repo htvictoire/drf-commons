@@ -118,7 +118,7 @@ module = "*.tests.*"
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "drf_commons.common_conf.test_settings"
+DJANGO_SETTINGS_MODULE = "drf_commons.common_conf.django_settings"
 python_files = ["test_*.py", "*_test.py"]
 testpaths = ["drf_commons"]
 addopts = "--strict-markers --tb=short"

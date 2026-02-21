@@ -1,31 +1,39 @@
 """
-Current user middleware for thread-local user access.
+Current user middleware for context-local user access.
 """
 
-from drf_commons.current_user.utils import _do_set_current_user
+from asgiref.sync import iscoroutinefunction, markcoroutinefunction
 
-
-class SetCurrentUser:
-    def __init__(this, request):
-        this.request = request
-
-    def __enter__(this):
-        _do_set_current_user(lambda self: getattr(this.request, "user", None))
-
-    def __exit__(this, type, value, traceback):
-        _do_set_current_user(lambda self: None)
+from drf_commons.current_user.utils import _reset_current_user, _set_current_user
 
 
 class CurrentUserMiddleware(object):
-    """Middleware to set current user in thread-local storage."""
+    """Middleware to set current user in context-local storage."""
+
+    sync_capable = True
+    async_capable = True
 
     def __init__(self, get_response):
         self.get_response = get_response
+        self.is_async = iscoroutinefunction(get_response)
+        if self.is_async:
+            markcoroutinefunction(self)
 
     def __call__(self, request):
-        # request.user closure; asserts laziness;
-        # memorization is implemented in
-        # request.user (non-data descriptor)
-        with SetCurrentUser(request):
+        if self.is_async:
+            return self.__acall__(request)
+
+        token = _set_current_user(getattr(request, "user", None))
+        try:
             response = self.get_response(request)
+        finally:
+            _reset_current_user(token)
+        return response
+
+    async def __acall__(self, request):
+        token = _set_current_user(getattr(request, "user", None))
+        try:
+            response = await self.get_response(request)
+        finally:
+            _reset_current_user(token)
         return response

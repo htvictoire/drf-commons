@@ -8,7 +8,7 @@ from django.test import TestCase, TransactionTestCase
 
 from rest_framework.test import APITestCase
 
-from drf_commons.current_user.utils import _thread_locals
+from drf_commons.current_user.utils import _clear_current_user
 from .utils import mock_current_user
 
 
@@ -17,12 +17,11 @@ class DrfCommonTestCase(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.addCleanup(self._cleanup_thread_locals)
+        self.addCleanup(self._cleanup_current_user_context)
 
-    def _cleanup_thread_locals(self):
-        """Clean up thread-local variables after test."""
-        if hasattr(_thread_locals, "_current_user"):
-            delattr(_thread_locals, "_current_user")
+    def _cleanup_current_user_context(self):
+        """Clean up current-user context after test."""
+        _clear_current_user()
 
 
 class DrfCommonTransactionTestCase(TransactionTestCase):
@@ -30,12 +29,11 @@ class DrfCommonTransactionTestCase(TransactionTestCase):
 
     def setUp(self):
         super().setUp()
-        self.addCleanup(self._cleanup_thread_locals)
+        self.addCleanup(self._cleanup_current_user_context)
 
-    def _cleanup_thread_locals(self):
-        """Clean up thread-local variables after test."""
-        if hasattr(_thread_locals, "_current_user"):
-            delattr(_thread_locals, "_current_user")
+    def _cleanup_current_user_context(self):
+        """Clean up current-user context after test."""
+        _clear_current_user()
 
 
 class DrfCommonAPITestCase(APITestCase):
@@ -43,12 +41,11 @@ class DrfCommonAPITestCase(APITestCase):
 
     def setUp(self):
         super().setUp()
-        self.addCleanup(self._cleanup_thread_locals)
+        self.addCleanup(self._cleanup_current_user_context)
 
-    def _cleanup_thread_locals(self):
-        """Clean up thread-local variables after test."""
-        if hasattr(_thread_locals, "_current_user"):
-            delattr(_thread_locals, "_current_user")
+    def _cleanup_current_user_context(self):
+        """Clean up current-user context after test."""
+        _clear_current_user()
 
 
 class ModelTestCase(DrfCommonTestCase):

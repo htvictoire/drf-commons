@@ -84,8 +84,8 @@ class CurrentUserMiddlewareIntegrationTests(TestCase):
         # get_current_user() should return None for AnonymousUser
         self.assertEqual(response.content.decode(), "Current user: None")
 
-    def test_middleware_cleans_up_thread_local(self):
-        """Test middleware cleans up thread-local data after request."""
+    def test_middleware_cleans_up_current_user_context(self):
+        """Test middleware cleans up current-user context after request."""
         request = self.factory.get('/test/')
         request.user = self.user
 
@@ -247,5 +247,4 @@ class MiddlewareStackIntegrationTests(TestCase):
 
         response = middleware(request)
         self.assertEqual(response.content.decode(), "User: None")
-
 

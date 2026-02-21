@@ -1,36 +1,40 @@
 """
-Current user utilities for thread-local user access.
+Current user utilities backed by ContextVar storage.
 """
 
-from threading import local
+from contextvars import ContextVar
 
 from drf_commons.common_conf import settings
 
 USER_ATTR_NAME = settings.LOCAL_USER_ATTR_NAME
 
-_thread_locals = local()
-
-
-def _do_set_current_user(user_fun):
-    setattr(_thread_locals, USER_ATTR_NAME, user_fun.__get__(user_fun, local))
+_current_user_var = ContextVar(USER_ATTR_NAME, default=None)
 
 
 def _set_current_user(user=None):
     """
-    Sets current user in local thread.
-
-    Can be used as a hook e.g. for shell jobs (when request object is not
-    available).
+    Set current user in the active context and return reset token.
     """
-    _do_set_current_user(lambda self: user)
+    return _current_user_var.set(user)
+
+
+def _reset_current_user(token):
+    """
+    Reset current user context to the previous value represented by token.
+    """
+    _current_user_var.reset(token)
+
+
+def _clear_current_user():
+    """
+    Clear current user for the active context.
+    """
+    _current_user_var.set(None)
 
 
 def get_current_user():
-    """Get the current user from thread-local storage."""
-    current_user = getattr(_thread_locals, USER_ATTR_NAME, None)
-    if callable(current_user):
-        return current_user()
-    return current_user
+    """Get the current user from context-local storage."""
+    return _current_user_var.get()
 
 
 def get_current_authenticated_user():
