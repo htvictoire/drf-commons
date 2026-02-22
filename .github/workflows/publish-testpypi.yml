@@ -2,8 +2,8 @@ name: publish-testpypi
 
 on:
   push:
-    branches:
-      - beta
+    tags:
+      - "v*"
 
 jobs:
   build:
@@ -12,6 +12,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     needs: build
+    if: contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc')
     permissions:
       id-token: write
       contents: read
@@ -30,3 +31,5 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
+          verbose: true
+          print-hash: true

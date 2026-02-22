@@ -2,8 +2,8 @@ name: publish-pypi
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "v*"
 
 jobs:
   build:
@@ -12,6 +12,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     needs: build
+    if: "!contains(github.ref_name, 'a') && !contains(github.ref_name, 'b') && !contains(github.ref_name, 'rc')"
     permissions:
       id-token: write
       contents: read
@@ -27,3 +28,6 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          print-hash: true
