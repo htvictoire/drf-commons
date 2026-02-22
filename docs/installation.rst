@@ -148,7 +148,7 @@ Verifying Installation
 .. code-block:: python
 
    import drf_commons
-   print(drf_commons.__version__)  # 1.0.1
+   print(drf_commons.__version__)
 
    from drf_commons.models import BaseModelMixin
    from drf_commons.views import BaseViewSet

@@ -3,6 +3,7 @@
 
 import os
 import sys
+from importlib.metadata import version as pkg_version
 
 # -- Path setup ---------------------------------------------------------------
 
@@ -26,8 +27,8 @@ except Exception:
 project = "drf-commons"
 copyright = "2024, Victoire HABAMUNGU"
 author = "Victoire HABAMUNGU"
-release = "1.0.1"
-version = "1.0"
+release = pkg_version("drf-commons")
+version = ".".join(release.split(".")[:2])
 
 # -- General configuration ----------------------------------------------------
 

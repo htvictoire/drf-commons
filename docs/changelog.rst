@@ -5,7 +5,7 @@ All notable changes to drf-commons are documented here.
 
 drf-commons follows `Semantic Versioning <https://semver.org/>`_.
 
-1.0.1 (Current)
+1.0.2 (Current)
 ----------------
 
 *Maintenance release*
