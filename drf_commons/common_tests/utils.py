@@ -17,7 +17,6 @@ from drf_commons.current_user.utils import (
     _set_current_user,
     get_current_user,
 )
-from drf_commons.common_conf.settings import clear_settings_cache
 
 
 def mock_current_user(user):
@@ -141,11 +140,6 @@ def mock_file_download_response():
 def override_debug_settings(**settings_dict):
     """Override DRF Commons debug settings for testing."""
     with override_settings(**settings_dict):
-        # Clear any cached settings
-        try:
-            clear_settings_cache()
-        except ImportError:
-            pass
         yield
 
 

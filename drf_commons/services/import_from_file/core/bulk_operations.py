@@ -134,21 +134,21 @@ class BulkOperations:
         return save_errors
 
     def bulk_update_instances(
-        self, model_cls, to_update: List[Tuple[int, Model]], update_fields: Set[str]
+        self, model_cls, to_update: List[Tuple[int, Model]], fields_to_update: Set[str]
     ) -> Dict[int, str]:
         """Bulk update model instances with fallback to individual saves.
 
         Returns:
             Dict mapping row_idx to error message for failed saves.
         """
-        if not to_update or not update_fields:
+        if not to_update or not fields_to_update:
             return {}
 
         row_indices, instances = zip(*to_update)
 
         try:
             model_cls.objects.bulk_update(
-                list(instances), list(update_fields), batch_size=self.batch_size
+                list(instances), list(fields_to_update), batch_size=self.batch_size
             )
             logger.debug(
                 "Bulk updated %d %s instances", len(to_update), model_cls.__name__
@@ -164,7 +164,7 @@ class BulkOperations:
             save_errors = {}
             for row_idx, obj in zip(row_indices, instances):
                 try:
-                    obj.save(update_fields=list(update_fields))
+                    obj.save()
                 except Exception as save_error:
                     error_msg = (
                         f"Failed to update {model_cls.__name__}: {str(save_error)}"

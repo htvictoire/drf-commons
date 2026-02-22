@@ -178,8 +178,12 @@ class ConfigurableRelatedFieldMixinTests(SerializerTestCase):
     def test_handle_slug_input_with_username(self):
         """Test slug input handling using username as slug field."""
         user_with_name = UserFactory(username="test-slug")
-        field = create_mock_field(queryset=self.queryset, input_formats=["slug"])
-        result = field.queryset.get(username="test-slug")
+        field = create_mock_field(
+            queryset=self.queryset,
+            input_formats=["slug"],
+            slug_lookup_field="username",
+        )
+        result = field._handle_slug_input("test-slug")
         self.assertEqual(result, user_with_name)
 
     def test_configuration_accepts_valid_input_formats(self):
@@ -222,6 +226,7 @@ class ConfigurableRelatedFieldMixinTests(SerializerTestCase):
         field = create_mock_field(
             queryset=Group.objects.all(),
             input_formats=["id", "slug"],
+            slug_lookup_field="name",
         )
 
         result = field.to_internal_value("ops-team")
@@ -234,6 +239,7 @@ class ConfigurableRelatedFieldMixinTests(SerializerTestCase):
         field = create_mock_field(
             queryset=Group.objects.all(),
             input_formats=["id", "slug"],
+            slug_lookup_field="name",
         )
 
         result = field.to_internal_value(str(group.pk))
@@ -246,6 +252,7 @@ class ConfigurableRelatedFieldMixinTests(SerializerTestCase):
         field = create_mock_field(
             queryset=Group.objects.all(),
             input_formats=["id", "slug"],
+            slug_lookup_field="name",
         )
         field.error_messages = {
             "does_not_exist": "Object does not exist.",
@@ -255,3 +262,12 @@ class ConfigurableRelatedFieldMixinTests(SerializerTestCase):
         result = field.to_internal_value("404")
 
         self.assertEqual(result, group)
+
+    def test_handle_slug_input_invalid_lookup_field_raises_validation_error(self):
+        field = create_mock_field(
+            queryset=self.queryset,
+            input_formats=["slug"],
+            slug_lookup_field="name",
+        )
+        with self.assertRaises(serializers.ValidationError):
+            field._handle_slug_input("any")

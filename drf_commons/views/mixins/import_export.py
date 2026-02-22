@@ -4,11 +4,9 @@ Mixins for file import and export functionality.
 
 import os
 import logging
-from io import StringIO
 from uuid import uuid4
 
 from django.conf import settings as django_settings
-from django.core.management import call_command
 from django.db import transaction
 from django.http import HttpResponse
 from django.utils import timezone
@@ -18,7 +16,7 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 
-from drf_commons.common_conf.settings import IMPORT_FAILED_ROWS_DISPLAY_LIMIT
+from drf_commons.common_conf import settings
 from drf_commons.response.utils import error_response, success_response
 from drf_commons.services.export_file import ExportService
 
@@ -40,6 +38,10 @@ class FileImportMixin:
     import_file_config = None  # Must be defined by subclass
     import_template_name = None  # Must be defined by subclass
     import_transforms = None  # Optional transform functions
+
+    def get_import_failed_rows_display_limit(self):
+        """Resolve failed-row display limit dynamically."""
+        return settings.IMPORT_FAILED_ROWS_DISPLAY_LIMIT
 
     @staticmethod
     def parse_bool(value, field_name: str) -> bool:
@@ -152,10 +154,9 @@ class FileImportMixin:
 
             if replace_data:
                 with transaction.atomic():
-                    count = self.get_queryset().count()
-                    if count > 0:
-                        deleted_info = self.get_queryset().delete()
-                        deleted_count = deleted_info[0]
+                    queryset = self.get_queryset()
+                    deleted_info = queryset.delete()
+                    deleted_count = deleted_info[0]
 
                     result = service.import_file(uploaded_file)
                     summary = result["summary"]
@@ -172,13 +173,12 @@ class FileImportMixin:
                             row for row in result["rows"] if row["status"] == "failed"
                         ]
                         if failed_rows:
-                            response_data["failed_rows"] = failed_rows[
-                                :IMPORT_FAILED_ROWS_DISPLAY_LIMIT
-                            ]
-                            if len(failed_rows) > IMPORT_FAILED_ROWS_DISPLAY_LIMIT:
+                            limit = self.get_import_failed_rows_display_limit()
+                            response_data["failed_rows"] = failed_rows[:limit]
+                            if len(failed_rows) > limit:
                                 response_data["additional_failures"] = (
                                     len(failed_rows)
-                                    - IMPORT_FAILED_ROWS_DISPLAY_LIMIT
+                                    - limit
                                 )
 
                         transaction.set_rollback(True)
@@ -212,12 +212,11 @@ class FileImportMixin:
             # Include row details if there were failures
             failed_rows = [row for row in result["rows"] if row["status"] == "failed"]
             if failed_rows:
-                response_data["failed_rows"] = failed_rows[
-                    :IMPORT_FAILED_ROWS_DISPLAY_LIMIT
-                ]
-                if len(failed_rows) > IMPORT_FAILED_ROWS_DISPLAY_LIMIT:
+                limit = self.get_import_failed_rows_display_limit()
+                response_data["failed_rows"] = failed_rows[:limit]
+                if len(failed_rows) > limit:
                     response_data["additional_failures"] = (
-                        len(failed_rows) - IMPORT_FAILED_ROWS_DISPLAY_LIMIT
+                        len(failed_rows) - limit
                     )
 
             # Determine status based on results
@@ -289,25 +288,27 @@ class FileImportMixin:
 
         # Check if template file exists, generate if missing
         if not os.path.exists(template_path):
+            command_hint = "python manage.py generate_import_template <app_label.ViewSetName> --filename <template_filename>"
             try:
-                self._generate_template_file()
-                # Verify it was created successfully
-                if not os.path.exists(template_path):
-                    return error_response(
-                        message="Failed to generate template file",
-                        errors={
-                            "template": [
-                                f"Could not create template '{self.import_template_name}'"
-                            ]
-                        },
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
-            except Exception as e:
-                return error_response(
-                    message="Template generation failed",
-                    errors={"template": [f"Error generating template: {str(e)}"]},
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                viewset_path = self._resolve_template_viewset_path()
+                command_hint = (
+                    f"python manage.py generate_import_template {viewset_path} "
+                    f"--filename {self.import_template_name}"
                 )
+            except Exception:
+                pass
+
+            return error_response(
+                message="Import template file is missing",
+                errors={
+                    "template": [
+                        f"Template '{self.import_template_name}' was not found.",
+                        "Generate it using the management command before downloading.",
+                        command_hint,
+                    ]
+                },
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
 
         try:
             # Read the template file
@@ -347,36 +348,28 @@ class FileImportMixin:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    def _generate_template_file(self):
-        """Generate template file using Django's management command."""
-
-        # Get app label from the model in queryset
-        if hasattr(self, "queryset") and self.queryset is not None:
-            app_label = self.queryset.model._meta.app_label
-        elif hasattr(self, "model") and self.model is not None:
-            app_label = self.model._meta.app_label
-        else:
-            # Fallback: try to extract from module path
-            module_parts = self.__class__.__module__.split(".")
-            app_label = module_parts[0]
-
-        viewset_name = self.__class__.__name__
-        viewset_path = f"{app_label}.{viewset_name}"
-
-        # Capture command output
-        out = StringIO()
+    def _resolve_template_viewset_path(self):
+        """Resolve <app_label.ViewSetClassName> for template generation command hints."""
+        model = None
 
         try:
-            # Call the management command directly
-            call_command(
-                "generate_import_template",
-                viewset_path,
-                filename=self.import_template_name,
-                order_by="required-first",
-                stdout=out,
+            queryset = self.get_queryset()
+            model = getattr(queryset, "model", None)
+        except Exception:
+            model = None
+
+        if model is None and hasattr(self, "queryset") and self.queryset is not None:
+            model = self.queryset.model
+        if model is None and hasattr(self, "model") and self.model is not None:
+            model = self.model
+
+        if model is None:
+            raise ValueError(
+                "Unable to resolve model app label for template generation command."
             )
-        except Exception as e:
-            raise Exception(f"Template generation failed: {str(e)}")
+
+        app_label = model._meta.app_label
+        return f"{app_label}.{self.__class__.__name__}"
 
 
 class FileExportMixin:

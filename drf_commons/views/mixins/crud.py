@@ -6,6 +6,7 @@ which allows mixin classes to be composed in interesting ways.
 """
 
 from rest_framework import status
+from django.core.exceptions import ImproperlyConfigured
 from rest_framework.exceptions import ValidationError
 
 from drf_commons.response.utils import success_response
@@ -60,9 +61,7 @@ class ListModelMixin:
         if not self.append_indexes:
             return results
 
-        for idx, item in enumerate(results, 1):
-            item["index"] = idx
-        return results
+        return [{**item, "index": idx} for idx, item in enumerate(results, 1)]
 
     def list(self, request, *args, **kwargs):
         paginated = request.query_params.get("paginated", "true").lower() in [
@@ -233,16 +232,15 @@ class DestroyModelMixin:
             Override this method to implement soft delete logic.
         """
         instance = self.get_object()
-        try:
-            self.perform_soft_destroy(instance)
-        except AttributeError:
-            raise ValidationError(
-                f"Soft delete is not supported for {instance.__class__.__name__} model"
-            )
+        self.perform_soft_destroy(instance)
         return success_response(message=self.on_soft_destroy_message())
 
     def perform_destroy(self, instance):
         instance.delete()
 
     def perform_soft_destroy(self, instance):
+        if not hasattr(instance, "soft_delete") or not callable(instance.soft_delete):
+            raise ImproperlyConfigured(
+                f"Soft delete is not supported for {get_model_name(self)}"
+            )
         instance.soft_delete()

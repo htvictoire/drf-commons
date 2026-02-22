@@ -39,9 +39,7 @@ DRF-heavy systems frequently run mixed settings estates (legacy global names plu
 Internal mechanics and caveats
 ------------------------------
 
-- module constants in ``settings.py`` are evaluated at import time,
-- ``clear_settings_cache()`` is a backward-compatible no-op,
-- runtime settings changes therefore require module reload or process restart for fully consistent behavior.
+- settings are resolved dynamically from Django settings on each access.
 
 Key configuration domains
 -------------------------

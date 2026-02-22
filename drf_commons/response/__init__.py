@@ -8,12 +8,10 @@ and merge in provided data. Views handle all business logic.
 from .utils import (
     error_response,
     success_response,
-    validation_error_response,
 )
 
 __all__ = [
     # Utility functions
     "success_response",
     "error_response",
-    "validation_error_response",
 ]

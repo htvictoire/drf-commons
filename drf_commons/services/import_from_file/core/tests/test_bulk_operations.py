@@ -100,7 +100,7 @@ class BulkOperationsTests(DrfCommonTestCase):
         result = self.bulk_ops.bulk_update_instances(User, [], {"email"})
         self.assertEqual(result, {})
 
-        user = User.objects.create(username="no_update_fields")
+        user = User.objects.create(username="no_fields_to_update")
         result = self.bulk_ops.bulk_update_instances(User, [(0, user)], set())
         self.assertEqual(result, {})
 

@@ -22,6 +22,7 @@ class ConfigurableRelatedFieldMixin(
         input_formats=None,
         output_format="serialized",
         lookup_field="pk",
+        slug_lookup_field=None,
         create_if_nested=True,
         update_if_exists=False,
         custom_output_callable=None,
@@ -36,6 +37,7 @@ class ConfigurableRelatedFieldMixin(
             input_formats: List of accepted input formats ['id', 'nested', 'slug', 'object']
             output_format: Output format - 'id', 'str', 'serialized', 'custom'
             lookup_field: Field to use for lookups (default: 'pk')
+            slug_lookup_field: Field to use for slug-string lookups (default: lookup_field)
             create_if_nested: Whether to create objects from nested data
             update_if_exists: Whether to update existing objects with nested data
             custom_output_callable: Custom function for output formatting
@@ -44,6 +46,7 @@ class ConfigurableRelatedFieldMixin(
         self.input_formats = input_formats or ["id", "nested"]
         self.output_format = output_format
         self.lookup_field = lookup_field
+        self.slug_lookup_field = slug_lookup_field or lookup_field
         self.create_if_nested = create_if_nested
         self.update_if_exists = update_if_exists
         self.custom_output_callable = custom_output_callable

@@ -7,6 +7,7 @@ Tests basic CRUD mixins functionality.
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
 
 
 from drf_commons.common_tests.base_cases import ViewTestCase
@@ -130,6 +131,17 @@ class ListModelMixinTests(ViewTestCase):
         mixin.paginate_queryset.assert_called_once_with(mock_queryset)
         self.assertEqual(response.status_code, 200)
 
+    def test_add_indexes_to_results_does_not_mutate_input(self):
+        """Index helper should return a new list without mutating input rows."""
+        mixin = ListModelMixin()
+        original_results = [{"id": 1}, {"id": 2}]
+
+        indexed_results = mixin._add_indexes_to_results(original_results)
+
+        self.assertEqual(original_results, [{"id": 1}, {"id": 2}])
+        self.assertEqual(indexed_results[0]["index"], 1)
+        self.assertEqual(indexed_results[1]["index"], 2)
+
 
 class RetrieveModelMixinTests(ViewTestCase):
     """Tests for RetrieveModelMixin."""
@@ -214,3 +226,11 @@ class DestroyModelMixinTests(ViewTestCase):
         self.assertTrue(response.data["success"])
         self.assertIn("message", response.data)
         mixin.perform_soft_destroy.assert_called_once_with(instance)
+
+    def test_soft_destroy_raises_improperly_configured_when_not_supported(self):
+        """Soft destroy should fail as server misconfiguration when model lacks support."""
+        mixin = DestroyModelMixin()
+        mixin.get_object = Mock(return_value=object())
+
+        with self.assertRaises(ImproperlyConfigured):
+            mixin.soft_destroy(request=Mock())

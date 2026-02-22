@@ -9,7 +9,7 @@ from django.utils.text import slugify
 
 from drf_commons.common_tests.base_cases import ModelTestCase
 
-from ..content import MetaMixin, SlugMixin, VersionMixin
+from ..content import MetaMixin, SlugMixin, VersionConflictError, VersionMixin
 
 
 class SlugModelForTesting(SlugMixin):
@@ -433,7 +433,10 @@ class VersionMixinTests(ModelTestCase):
             model.save()
 
             self.assertEqual(model.version, 2)
-            mock_super_save.assert_called_once()
+            mock_super_save.assert_not_called()
+            original.refresh_from_db()
+            self.assertEqual(original.version, 2)
+            self.assertEqual(original.name, "updated test")
 
     def test_save_does_not_increment_version_for_creates(self):
         """Test save does not increment version for new records."""
@@ -445,18 +448,15 @@ class VersionMixinTests(ModelTestCase):
             self.assertEqual(model.version, 1)
             mock_super_save.assert_called_once()
 
-    def test_save_does_not_increment_version_when_changed(self):
-        """Test save does not increment version when version already changed."""
+    def test_save_raises_version_conflict_when_version_changed(self):
+        """Test save raises conflict when provided version is stale."""
         original = VersionModelForTesting.objects.create(name="test", version=1)
 
         # Create a new instance with the same pk but different version (simulating concurrent update)
         model = VersionModelForTesting(pk=original.pk, version=2, name="updated test")
 
-        with patch("django.db.models.Model.save"):
+        with self.assertRaises(VersionConflictError):
             model.save()
-
-            # Should not increment since version was already changed
-            self.assertEqual(model.version, 2)
 
     def test_save_with_skip_version_increment(self):
         """Test save with skip_version_increment kwarg."""

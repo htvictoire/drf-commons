@@ -97,9 +97,7 @@ class MiddlewareCheckerTestCase(DrfCommonTestCase):
         mock_get_models.return_value = [object(), object()]
         mock_uses_features.side_effect = [False, True]
 
-        used = enforce_current_user_middleware_if_used(
-            "drf_commons.middlewares.current_user.CurrentUserMiddleware"
-        )
+        used = enforce_current_user_middleware_if_used()
 
         self.assertTrue(used)
         mock_enforce.assert_called_once_with(
@@ -117,9 +115,7 @@ class MiddlewareCheckerTestCase(DrfCommonTestCase):
         mock_get_models.return_value = [object(), object()]
         mock_uses_features.side_effect = [False, False]
 
-        used = enforce_current_user_middleware_if_used(
-            "drf_commons.middlewares.current_user.CurrentUserMiddleware"
-        )
+        used = enforce_current_user_middleware_if_used()
 
         self.assertFalse(used)
         mock_enforce.assert_not_called()

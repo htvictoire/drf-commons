@@ -164,6 +164,7 @@ class StrToDataField(ConfigurableRelatedField):
         if relation_write is not None:
             kwargs.setdefault("relation_write", relation_write)
         kwargs.setdefault("input_formats", ["slug"])
+        kwargs.setdefault("slug_lookup_field", "slug")
         kwargs.setdefault("output_format", "serialized")
         super().__init__(**kwargs)
 
@@ -208,5 +209,6 @@ class StrOnlyField(ConfigurableRelatedField):
         if relation_write is not None:
             kwargs.setdefault("relation_write", relation_write)
         kwargs.setdefault("input_formats", ["slug"])
+        kwargs.setdefault("slug_lookup_field", "slug")
         kwargs.setdefault("output_format", "str")
         super().__init__(**kwargs)

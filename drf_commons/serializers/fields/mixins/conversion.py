@@ -1,5 +1,6 @@
 """Input and output conversion behavior for configurable related fields."""
 
+from django.core.exceptions import FieldError
 from rest_framework import serializers
 
 from .deferred import DeferredRelatedOperation
@@ -108,13 +109,20 @@ class RelatedFieldConversionMixin:
             return self.queryset.get(**{self.lookup_field: data})
         except self.queryset.model.DoesNotExist:
             self.fail("does_not_exist", pk_value=data)
+        except FieldError:
+            raise serializers.ValidationError(
+                f"Invalid lookup_field '{self.lookup_field}' for {self.queryset.model.__name__}."
+            )
         except (ValueError, TypeError):
             self.fail("incorrect_type", data_type=type(data).__name__)
 
     def _handle_slug_input(self, data):
         """Handle slug-based lookup."""
-        slug_field = "slug" if hasattr(self.queryset.model, "slug") else "name"
         try:
-            return self.queryset.get(**{slug_field: data})
+            return self.queryset.get(**{self.slug_lookup_field: data})
         except self.queryset.model.DoesNotExist:
             self.fail("does_not_exist", pk_value=data)
+        except FieldError:
+            raise serializers.ValidationError(
+                f"Invalid slug_lookup_field '{self.slug_lookup_field}' for {self.queryset.model.__name__}."
+            )

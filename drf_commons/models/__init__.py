@@ -23,6 +23,7 @@ from .base import (
     TimeStampMixin,
     UserActionMixin,
 )
+from .mixins import JsonModelMixin
 
 # Content-related mixins
 from .content import (
@@ -48,6 +49,7 @@ __all__ = [
     "UserActionMixin",
     "TimeStampMixin",
     "SoftDeleteMixin",
+    "JsonModelMixin",
     # Content mixins
     "SlugMixin",
     "MetaMixin",

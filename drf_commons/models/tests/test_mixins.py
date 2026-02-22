@@ -237,9 +237,8 @@ class SoftDeleteMixinTests(ModelTestCase):
     @patch("drf_commons.models.mixins.get_current_authenticated_user")
     def test_set_created_by_and_updated_by_unauthenticated_user(self, mock_get_user):
         """Test set_created_by_and_updated_by when user is not authenticated."""
-        user = Mock()
-        user.is_authenticated = False
-        mock_get_user.return_value = user
+        # Helper contract: unauthenticated user resolves to None.
+        mock_get_user.return_value = None
 
         model = UserActionModelForTesting(name="test")
 

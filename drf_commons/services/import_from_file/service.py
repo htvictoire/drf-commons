@@ -41,7 +41,7 @@ class FileImportService:
         self,
         config: Dict[str, Any],
         *,
-        batch_size: int = settings.IMPORT_BATCH_SIZE,
+        batch_size: Optional[int] = None,
         transforms: Optional[Dict[str, callable]] = None,
         progress_callback: Optional[Callable[[int, int], None]] = None,
     ):
@@ -55,7 +55,9 @@ class FileImportService:
             progress_callback: Optional callback for progress tracking
         """
         self.config = config
-        self.batch_size = batch_size
+        self.batch_size = (
+            settings.IMPORT_BATCH_SIZE if batch_size is None else batch_size
+        )
         self.transforms = transforms or {}
         self.progress_callback = progress_callback
 
@@ -63,7 +65,7 @@ class FileImportService:
         self.validator = ConfigValidator(config, self.transforms)
         self.file_reader = FileReader(config)
         self.data_processor = DataProcessor(config, self.transforms)
-        self.bulk_ops = BulkOperations(batch_size)
+        self.bulk_ops = BulkOperations(self.batch_size)
 
         # Validate configuration
         self.validator.validate()
@@ -174,7 +176,7 @@ class FileImportService:
 
                 to_create = []
                 to_update = []
-                update_fields = set()
+                fields_to_update = set()
                 unique_key_rows = {}
                 row_unique_keys = {}
 
@@ -206,7 +208,7 @@ class FileImportService:
                                 pass
                             else:
                                 to_update.append((idx, existing_obj))
-                                update_fields.update(kwargs.keys())
+                                fields_to_update.update(kwargs.keys())
                             created_objs[idx][step_key] = existing_obj
                             set_row_status(idx, "updated")
                         elif existing_obj:
@@ -294,7 +296,7 @@ class FileImportService:
                             )
 
                 update_errors = self.bulk_ops.bulk_update_instances(
-                    model_cls, to_update, update_fields
+                    model_cls, to_update, fields_to_update
                 )
                 for row_idx, error_msg in update_errors.items():
                     mark_row_failed(

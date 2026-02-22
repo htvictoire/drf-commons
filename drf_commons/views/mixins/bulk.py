@@ -13,7 +13,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from drf_commons.common_conf.settings import BULK_OPERATION_BATCH_SIZE
+from drf_commons.common_conf import settings
 from drf_commons.response.utils import error_response, success_response
 from .crud import CreateModelMixin, DestroyModelMixin, UpdateModelMixin
 from .utils import get_model_name
@@ -24,26 +24,33 @@ class BulkOperationMixin:
     Mixin for bulk operations: create, update, delete.
     """
 
-    bulk_batch_size = BULK_OPERATION_BATCH_SIZE  # Max items per bulk operation
+    bulk_batch_size = None  # Max items per bulk operation; defaults to settings
 
-    def validate_bulk_data(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Validate bulk operation data."""
-        if not data:
-            raise ValidationError(
-                f"Data cannot be empty for {self.__class__.__name__} objects bulk operation."
-            )
+    def validate_bulk_data(self, data: List[Dict[str, Any]]) -> None:
+        """Validate bulk operation data (raise-only)."""
+        model_name = get_model_name(self)
+        bulk_batch_size = self.get_bulk_batch_size()
 
         if not isinstance(data, list):
             raise ValidationError(
-                f"Data must be a list of objects for {self.__class__.__name__}."
+                f"Data must be a list of objects for {model_name}."
             )
 
-        if len(data) > self.bulk_batch_size:
+        if not data:
             raise ValidationError(
-                f"Batch size cannot exceed {self.bulk_batch_size} items for {self.__class__.__name__}."
+                f"Data cannot be empty for {model_name} objects bulk operation."
             )
 
-        return data
+        if len(data) > bulk_batch_size:
+            raise ValidationError(
+                f"Batch size cannot exceed {bulk_batch_size} items for {model_name}."
+            )
+
+    def get_bulk_batch_size(self) -> int:
+        """Resolve batch size dynamically unless explicitly overridden."""
+        if self.bulk_batch_size is not None:
+            return self.bulk_batch_size
+        return settings.BULK_OPERATION_BATCH_SIZE
 
 
 class BulkCreateModelMixin(CreateModelMixin, BulkOperationMixin):
@@ -117,19 +124,19 @@ class BulkDeleteModelMixin(DestroyModelMixin, BulkOperationMixin):
         if not ids:
             raise ValidationError("IDs list cannot be empty.")
 
-        if len(ids) > self.bulk_batch_size:
+        bulk_batch_size = self.get_bulk_batch_size()
+        if len(ids) > bulk_batch_size:
             raise ValidationError(
-                f"Cannot {operation_name} more than {self.bulk_batch_size} items at once."
+                f"Cannot {operation_name} more than {bulk_batch_size} items at once."
             )
 
     def _get_queryset_data(self, ids):
-        """Get queryset and process found/missing objects."""
+        """Get queryset and process found/missing IDs."""
         queryset = self.get_queryset().filter(pk__in=ids)
-        found_objects = list(queryset)
-        found_ids = [str(obj.pk) for obj in found_objects]
-        missing_ids = set(map(str, ids)) - set(found_ids)
+        found_ids = list(queryset.values_list("pk", flat=True))
+        missing_ids = set(map(str, ids)) - set(map(str, found_ids))
 
-        return queryset, found_objects, missing_ids
+        return queryset, found_ids, missing_ids
 
     def _build_base_response_data(self, ids, missing_ids, count=0):
         """Build base response data structure."""
@@ -165,11 +172,13 @@ class BulkDeleteModelMixin(DestroyModelMixin, BulkOperationMixin):
             self._validate_delete_ids(ids, "delete")
 
             with transaction.atomic():
-                queryset, found_objects, missing_ids = self._get_queryset_data(ids)
-
-                deleted_count = len(found_objects)
-                if found_objects:
-                    queryset.delete()
+                queryset, found_ids, missing_ids = self._get_queryset_data(ids)
+                deleted_count = 0
+                if found_ids:
+                    _, deleted_details = queryset.delete()
+                    deleted_count = deleted_details.get(
+                        queryset.model._meta.label, 0
+                    )
 
             response_data = self._build_base_response_data(
                 ids, missing_ids, deleted_count
@@ -204,10 +213,10 @@ class BulkDeleteModelMixin(DestroyModelMixin, BulkOperationMixin):
             self._validate_delete_ids(ids, "soft delete")
 
             with transaction.atomic():
-                queryset, found_objects, missing_ids = self._get_queryset_data(ids)
+                queryset, found_ids, missing_ids = self._get_queryset_data(ids)
 
                 soft_deleted_count = 0
-                if found_objects:
+                if found_ids:
                     soft_deleted_count = queryset.update(
                         deleted_at=timezone.now(), is_active=False
                     )

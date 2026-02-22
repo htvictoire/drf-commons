@@ -97,10 +97,11 @@ def _model_uses_current_user_features(model):
     return False
 
 
-def enforce_current_user_middleware_if_used(middleware_path):
+def enforce_current_user_middleware_if_used():
     """
     Enforce current-user middleware only when loaded models use related features.
     """
+    middleware_path = "drf_commons.middlewares.current_user.CurrentUserMiddleware"
     uses_current_user_features = any(
         _model_uses_current_user_features(model) for model in apps.get_models()
     )

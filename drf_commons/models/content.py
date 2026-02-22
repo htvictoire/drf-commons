@@ -7,7 +7,7 @@ like slug generation, metadata storage, and version tracking.
 
 from typing import Any, List
 
-from django.db import IntegrityError, models, transaction
+from django.db import models
 from django.db.models import F
 from django.utils.text import slugify
 
@@ -85,26 +85,8 @@ class SlugMixin(models.Model):
             super().save(*args, **kwargs)
             return
 
-        base_slug = self.generate_slug()
-
-        for attempt in range(self.slug_conflict_retry_limit):
-            self.slug = self._build_slug_candidate(base_slug, attempt)
-            try:
-                with transaction.atomic():
-                    super().save(*args, **kwargs)
-                return
-            except IntegrityError:
-                # Retry when the slug candidate already exists.
-                slug_conflict = self.__class__.objects.filter(slug=self.slug).exclude(
-                    pk=self.pk
-                )
-                if not slug_conflict.exists():
-                    raise
-
-        raise IntegrityError(
-            f"Unable to allocate unique slug for '{base_slug}' after "
-            f"{self.slug_conflict_retry_limit} attempts."
-        )
+        self.slug = self.generate_slug()
+        super().save(*args, **kwargs)
 
 
 class MetaMixin(models.Model):
@@ -232,26 +214,48 @@ class VersionMixin(models.Model):
             **kwargs: Arbitrary keyword arguments
         """
         skip_version_increment = kwargs.pop("skip_version_increment", False)
+        using = kwargs.pop("using", None)
+        force_insert = kwargs.pop("force_insert", False)
+        update_fields = kwargs.pop("update_fields", None)
 
         # Version tracking applies only to persisted rows.
-        is_update = bool(self.pk) and not self._state.adding
-        if not is_update or skip_version_increment:
+        is_update = bool(self.pk)
+        if not is_update or skip_version_increment or force_insert:
             super().save(*args, **kwargs)
             return
 
         expected_version = self.version
-        with transaction.atomic():
-            updated_rows = (
-                self.__class__.objects.filter(
-                    pk=self.pk, version=expected_version
-                ).update(version=F("version") + 1)
-            )
-            if updated_rows == 0:
-                raise VersionConflictError(
-                    "Version conflict detected for "
-                    f"{self.__class__.__name__}(pk={self.pk}). "
-                    f"Expected version {expected_version}."
-                )
+        manager = self.__class__._default_manager
+        if using:
+            manager = manager.using(using)
 
-            self.version = expected_version + 1
-            super().save(*args, **kwargs)
+        update_payload = {}
+        if update_fields is None:
+            fields_to_persist = [
+                field.attname for field in self._meta.concrete_fields if not field.primary_key
+            ]
+        else:
+            fields_to_persist = []
+            for field_name in update_fields:
+                field = self._meta.get_field(field_name)
+                if field.primary_key:
+                    continue
+                fields_to_persist.append(field.attname)
+
+        for attname in fields_to_persist:
+            if attname == "version":
+                continue
+            update_payload[attname] = getattr(self, attname)
+        update_payload["version"] = F("version") + 1
+
+        updated_rows = manager.filter(pk=self.pk, version=expected_version).update(
+            **update_payload
+        )
+        if updated_rows == 0:
+            raise VersionConflictError(
+                "Version conflict detected for "
+                f"{self.__class__.__name__}(pk={self.pk}). "
+                f"Expected version {expected_version}."
+            )
+
+        self.version = expected_version + 1

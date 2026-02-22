@@ -65,7 +65,7 @@ class BaseModelMixinTests(ModelTestCase):
         model = BaseModelForTesting(name="test", description="test description")
         model.id = uuid.uuid4()
 
-        json_str = model.get_json()
+        json_str = model.get_json(fields=["id", "name", "description"])
         data = json.loads(json_str)
 
         self.assertEqual(data["name"], "test")
@@ -92,11 +92,39 @@ class BaseModelMixinTests(ModelTestCase):
         self.assertIn("name", data)
         self.assertNotIn("description", data)
 
+    def test_get_json_with_fields_all(self):
+        """Test JSON serialization with fields='__all__'."""
+        model = BaseModelForTesting(name="test", description="test description")
+
+        json_str = model.get_json(fields="__all__")
+        data = json.loads(json_str)
+
+        self.assertIn("id", data)
+        self.assertIn("name", data)
+        self.assertIn("description", data)
+
+    def test_get_json_rejects_invalid_fields_string(self):
+        """get_json should reject string fields value other than '__all__'."""
+        model = BaseModelForTesting(name="test")
+
+        with self.assertRaises(ValueError):
+            model.get_json(fields="name")
+
     def test_get_json_exclude_general_fields(self):
         """Test JSON serialization excluding general fields."""
         model = BaseModelForTesting(name="test", description="test description")
 
-        json_str = model.get_json(exclude_general_fields=True)
+        json_str = model.get_json(
+            fields=[
+                "name",
+                "description",
+                "created_at",
+                "updated_at",
+                "created_by",
+                "updated_by",
+            ],
+            exclude_general_fields=True,
+        )
         data = json.loads(json_str)
 
         self.assertIn("name", data)
@@ -112,7 +140,7 @@ class BaseModelMixinTests(ModelTestCase):
         model = BaseModelForTesting(name="test")
         model.created_by = user
 
-        json_str = model.get_json()
+        json_str = model.get_json(fields=["created_by"])
         data = json.loads(json_str)
 
         self.assertEqual(data["created_by"], user.pk)
@@ -124,12 +152,19 @@ class BaseModelMixinTests(ModelTestCase):
         model.created_at = test_time
         model.updated_at = test_time
 
-        json_str = model.get_json()
+        json_str = model.get_json(fields=["created_at", "updated_at"])
         data = json.loads(json_str)
 
         self.assertIsInstance(data, dict)
         self.assertIn("created_at", data)
         self.assertIn("updated_at", data)
+
+    def test_get_json_requires_field_selector(self):
+        """get_json must require either fields or exclude_fields."""
+        model = BaseModelForTesting(name="test")
+
+        with self.assertRaises(ValueError):
+            model.get_json()
 
     def test_id_field_properties(self):
         """Test UUID ID field properties."""

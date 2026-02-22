@@ -93,7 +93,7 @@ class BulkUpdateListSerializer(serializers.ListSerializer):
 
         # Match instances with validated data by position
         instances_to_update = []
-        update_fields = set()
+        fields_to_update = set()
 
         for idx, (inst, item_data) in enumerate(zip(instances, validated_data)):
             item_data = dict(item_data)
@@ -119,16 +119,17 @@ class BulkUpdateListSerializer(serializers.ListSerializer):
                         }
                     )
                 setattr(inst, attr, value)
-                update_fields.add(attr)
+                fields_to_update.add(attr)
 
             if use_save_on_bulk_update:
                 inst.save()
             instances_to_update.append(inst)
 
         # Perform bulk update when direct-write mode is enabled.
-        if not use_save_on_bulk_update and instances_to_update and update_fields:
-            # Use the model class from the first instance
-            model_class.objects.bulk_update(instances_to_update, list(update_fields))
+        if not use_save_on_bulk_update and instances_to_update and fields_to_update:
+            # Stabilize SQL column ordering for deterministic query shape.
+            ordered_fields = sorted(fields_to_update)
+            model_class.objects.bulk_update(instances_to_update, ordered_fields)
 
         return instances_to_update
 

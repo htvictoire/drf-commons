@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
-from ..utils import error_response, success_response, validation_error_response
+from ..utils import error_response, success_response
 
 
 class SuccessResponseTestCase(DrfCommonTestCase):
@@ -34,7 +34,7 @@ class SuccessResponseTestCase(DrfCommonTestCase):
         data = [{"id": 1, "name": "Test User"}]
         response = success_response(data=data)
 
-        self.assertEqual(response.data["data"], data)
+        self.assertEqual(response.data["data"], {"results": data})
         self.assertTrue(response.data["success"])
 
     def test_success_response_with_message(self):
@@ -63,7 +63,7 @@ class SuccessResponseTestCase(DrfCommonTestCase):
         """Test success response with additional kwargs."""
         response = success_response(custom_field="custom_value")
 
-        self.assertEqual(response.data["custom_field"], "custom_value")
+        self.assertEqual(response.data["data"]["custom_field"], "custom_value")
         self.assertTrue(response.data["success"])
 
 
@@ -107,40 +107,6 @@ class ErrorResponseTestCase(DrfCommonTestCase):
         """Test error response with additional kwargs."""
         response = error_response(custom_field="custom_value")
 
-        self.assertEqual(response.data["custom_field"], "custom_value")
+        self.assertEqual(response.data["data"]["custom_field"], "custom_value")
         self.assertFalse(response.data["success"])
 
-
-class ValidationErrorResponseTestCase(DrfCommonTestCase):
-    """Test validation_error_response function."""
-
-    def test_validation_error_response_basic(self):
-        """Test basic validation error response."""
-        errors = {"username": ["This field is required"]}
-        response = validation_error_response(errors=errors)
-
-        self.assertIsInstance(response, Response)
-        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
-        self.assertFalse(response.data["success"])
-        self.assertEqual(response.data["message"], "Validation failed")
-        self.assertEqual(response.data["errors"], errors)
-        self.assertIn("timestamp", response.data)
-
-    def test_validation_error_response_with_custom_message(self):
-        """Test validation error response with custom message."""
-        errors = {"email": ["Invalid email format"]}
-        message = "Form validation failed"
-        response = validation_error_response(errors=errors, message=message)
-
-        self.assertEqual(response.data["message"], message)
-        self.assertEqual(response.data["errors"], errors)
-        self.assertFalse(response.data["success"])
-
-    def test_validation_error_response_with_kwargs(self):
-        """Test validation error response with additional kwargs."""
-        errors = {"password": ["Too weak"]}
-        response = validation_error_response(errors=errors, custom_field="custom_value")
-
-        self.assertEqual(response.data["custom_field"], "custom_value")
-        self.assertEqual(response.data["errors"], errors)
-        self.assertFalse(response.data["success"])

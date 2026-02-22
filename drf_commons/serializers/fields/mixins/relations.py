@@ -52,7 +52,7 @@ class RelatedFieldRelationWriteMixin:
                 current_parent_id = getattr(obj, f"{child_link_field}_id", None)
                 if current_parent_id != parent_instance.pk:
                     setattr(obj, child_link_field, parent_instance)
-                    obj.save(update_fields=[child_link_field])
+                    obj.save()
 
             if sync_mode in {"replace", "sync"}:
                 if not self._bound_model_field or not getattr(
@@ -79,7 +79,7 @@ class RelatedFieldRelationWriteMixin:
             return
 
         setattr(parent_instance, source_attr, resolved_value)
-        parent_instance.save(update_fields=[source_attr])
+        parent_instance.save()
 
     def _save_deferred_serializer(self, nested_serializer, parent_instance=None):
         """Persist nested serializer at save-time."""

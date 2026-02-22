@@ -1,4 +1,8 @@
+import json
+from typing import List, Optional, Set, Union
+
 from django.conf import settings as django_settings
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 from django.utils import timezone
 
@@ -53,7 +57,7 @@ class UserActionMixin(models.Model):
         Always updates updated_by with current user.
         """
         current_user = get_current_authenticated_user()
-        if current_user and current_user.is_authenticated:
+        if current_user:
             if not self.created_by:
                 self.created_by = current_user
             self.updated_by = current_user
@@ -128,6 +132,68 @@ class SoftDeleteMixin(models.Model):
             True if the instance is soft deleted, False otherwise
         """
         return not self.is_active
+
+    class Meta:
+        abstract = True
+
+
+class JsonModelMixin(models.Model):
+    """Mixin that provides JSON serialization for model instances."""
+
+    def get_json(
+        self,
+        exclude_fields: Optional[List[str]] = None,
+        fields: Optional[Union[List[str], str]] = None,
+        exclude_general_fields: bool = False,
+    ) -> str:
+        """
+        Return the JSON string representation of the model instance.
+
+        Args:
+            exclude_fields: List of field names to exclude from serialization
+            fields: List of field names to include, or "__all__"
+            exclude_general_fields: Whether to exclude timestamp and user fields
+
+        Returns:
+            JSON string representation of the model instance
+        """
+        if fields is None and exclude_fields is None:
+            raise ValueError(
+                "Either 'fields' or 'exclude_fields' must be provided."
+            )
+
+        if fields == "__all__":
+            field_names = [f.name for f in self._meta.fields]
+        elif fields is not None:
+            if isinstance(fields, str):
+                raise ValueError(
+                    "Invalid 'fields' value. Use a list of field names or '__all__'."
+                )
+            field_names = fields
+        else:
+            field_names = [f.name for f in self._meta.fields]
+
+        if exclude_fields:
+            field_names = [f for f in field_names if f not in exclude_fields]
+
+        data = {}
+        for field_name in field_names:
+            if hasattr(self, field_name):
+                value = getattr(self, field_name)
+                if value is not None and hasattr(value, "pk"):
+                    value = value.pk
+                data[field_name] = value
+
+        if exclude_general_fields:
+            general_fields: Set[str] = {
+                "created_at",
+                "updated_at",
+                "created_by",
+                "updated_by",
+            }
+            data = {k: v for k, v in data.items() if k not in general_fields}
+
+        return json.dumps(data, cls=DjangoJSONEncoder)
 
     class Meta:
         abstract = True
