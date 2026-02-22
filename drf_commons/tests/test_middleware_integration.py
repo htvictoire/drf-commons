@@ -247,4 +247,3 @@ class MiddlewareStackIntegrationTests(TestCase):
 
         response = middleware(request)
         self.assertEqual(response.content.decode(), "User: None")
-

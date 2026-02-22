@@ -1,89 +1,158 @@
 Installation
 ============
 
-Runtime dependencies
---------------------
+Requirements
+------------
 
-Base package:
+drf-commons requires:
+
+* Python 3.8 or higher
+* Django 3.2 or higher
+* Django REST Framework 3.12 or higher
+
+Core Installation
+-----------------
+
+Install the base package from PyPI:
 
 .. code-block:: bash
 
    pip install drf-commons
 
-Optional extras:
+The core installation includes the full view layer, model mixins, serializer
+utilities, response formatting, middleware, pagination, and filtering. It does
+**not** install optional feature dependencies.
+
+Optional Feature Sets
+---------------------
+
+drf-commons uses extras to keep the core dependency surface minimal:
 
 .. code-block:: bash
 
-   # Export extras (XLSX/PDF)
+   # File export support (CSV, XLSX, PDF)
    pip install drf-commons[export]
 
-   # Import extras (CSV/XLS/XLSX import pipeline)
+   # File import support (CSV, XLS, XLSX via pandas)
    pip install drf-commons[import]
 
-   # Debug extras (memory usage utilities)
+   # Debug and profiling utilities (psutil)
    pip install drf-commons[debug]
 
-Equivalent standalone dependency installs:
+   # All optional features
+   pip install drf-commons[export,import,debug]
+
+.. list-table:: Optional Dependencies
+   :widths: 15 35 50
+   :header-rows: 1
+
+   * - Extra
+     - Packages Installed
+     - Enables
+   * - ``export``
+     - ``openpyxl>=3.0``, ``weasyprint>=60.0``
+     - :class:`~drf_commons.services.export_file.service.ExportService` (XLSX, PDF)
+   * - ``import``
+     - ``openpyxl>=3.0``, ``pandas>=1.3``
+     - :class:`~drf_commons.services.import_from_file.service.FileImportService`
+   * - ``debug``
+     - ``psutil>=5.9``
+     - Memory usage monitoring in debug utilities
+
+Development Installation
+------------------------
+
+For contributing or local development:
 
 .. code-block:: bash
 
-   # Export support
-   # CSV: no extra dependency
-   # XLSX:
-   pip install openpyxl>=3.0
-   # PDF:
-   pip install weasyprint>=60.0
+   git clone https://github.com/htvictoire/drf-commons
+   cd drf-commons
 
-   # Import support
-   pip install pandas>=1.3
-   # for xlsx input
-   pip install openpyxl>=3.0
-   # for xls input
-   pip install xlrd
+   # Full development environment
+   pip install -e ".[export,import,debug]"
 
-   # Debug support
-   pip install psutil>=5.9
+   # Install development tools
+   pip install -e ".[dev,test]"
 
-Dependency activation semantics:
+   # Install documentation tools
+   pip install -r docs/requirements.txt
 
-- base install (``pip install drf-commons``) is sufficient for project startup and non import/export features.
-- CSV export works on base install.
-- XLSX/PDF export dependencies are loaded when those exporters run.
-- import pipeline dependencies are required when using import services/endpoints or import-template generation command.
-- debug memory utilities require ``psutil`` and are activated when ``memory_usage`` is called.
+Django Application Setup
+------------------------
 
-Django setup:
+Add ``drf_commons`` to your ``INSTALLED_APPS``:
 
 .. code-block:: python
 
+   # settings.py
    INSTALLED_APPS = [
+       "django.contrib.contenttypes",
+       "django.contrib.auth",
+       ...
+       "rest_framework",
        "drf_commons",
+       ...
    ]
 
-Development dependencies
-------------------------
+Middleware Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: bash
+If you use :class:`~drf_commons.models.base.UserActionMixin` or
+:class:`~drf_commons.models.fields.CurrentUserField`, add
+:class:`~drf_commons.middlewares.current_user.CurrentUserMiddleware` to your
+middleware stack:
 
-   pip install -e .[dev,test]
+.. code-block:: python
 
-Documentation dependencies
---------------------------
+   MIDDLEWARE = [
+       "django.middleware.security.SecurityMiddleware",
+       ...
+       "drf_commons.middlewares.CurrentUserMiddleware",
+       ...
+   ]
 
-.. code-block:: bash
+.. important::
 
-   pip install -r docs/requirements.txt
+   ``CurrentUserMiddleware`` must be placed after Django's authentication
+   middleware (``django.contrib.auth.middleware.AuthenticationMiddleware``)
+   to ensure ``request.user`` is populated when the middleware executes.
 
-Build docs locally
-------------------
+Configuration Namespace
+-----------------------
 
-.. code-block:: bash
+drf-commons reads its configuration from the ``COMMON`` dictionary in
+``settings.py``. All settings have defaults and are optional:
 
-   make -C docs html
+.. code-block:: python
 
-Output is generated under ``docs/_build/html``.
+   COMMON = {
+       # Batch sizing
+       "BULK_OPERATION_BATCH_SIZE": 1000,
+       "IMPORT_BATCH_SIZE": 250,
 
-Django settings for docs
-------------------------
+       # Performance thresholds (seconds)
+       "DEBUG_SLOW_REQUEST_THRESHOLD": 1.0,
+       "DEBUG_SLOW_QUERY_THRESHOLD": 0.1,
 
-Docs use ``docs/django_settings.py`` so that Sphinx can import Django/DRF-aware modules during API generation without requiring a full project.
+       # Query thresholds (count)
+       "DEBUG_HIGH_QUERY_COUNT_THRESHOLD": 10,
+
+       # Failed row display limit in import reports
+       "IMPORT_FAILED_ROWS_DISPLAY_LIMIT": 10,
+   }
+
+Verifying Installation
+----------------------
+
+.. code-block:: python
+
+   import drf_commons
+   print(drf_commons.__version__)
+
+   from drf_commons.models import BaseModelMixin
+   from drf_commons.views import BaseViewSet
+   from drf_commons.serializers import BaseModelSerializer
+   from drf_commons.response import success_response, error_response
+
+All imports at the top level are the primary public API.

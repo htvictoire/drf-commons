@@ -51,7 +51,7 @@ class CreateModelMixinTests(ViewTestCase):
         """Test on_create_message method."""
         mixin = CreateModelMixin()
         # Mock the get_model_name function
-        with patch("views.mixins.crud.get_model_name", return_value="TestModel"):
+        with patch("drf_commons.views.mixins.crud.get_model_name", return_value="TestModel"):
             message = mixin.on_create_message()
             self.assertEqual(message, "TestModel created successfully")
 

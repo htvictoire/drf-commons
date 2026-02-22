@@ -7,17 +7,13 @@ for all configurable related field functionality.
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.conf import settings as django_settings
 
 from rest_framework import serializers
 
 from drf_commons.common_tests.base_cases import SerializerTestCase
 from drf_commons.common_tests.factories import UserFactory
 from drf_commons.common_tests.serializers import (
-    UserSerializerForTesting,
     MockField,
-    MockFieldWithDefaults,
-    MockFieldWithSerializer,
     create_mock_field,
     create_serialized_mock_field,
 )

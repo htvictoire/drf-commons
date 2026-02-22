@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
-from drf_commons.common_tests.utils import create_csv_file, create_excel_file
+from drf_commons.common_tests.utils import create_csv_file
 
 from ..file_reader import FileReader
 
@@ -106,7 +106,7 @@ class FileReaderTests(DrfCommonTestCase):
         with self.assertRaises((FileNotFoundError, IOError)):
             self.reader.read_file("/nonexistent/file.csv")
 
-    @patch("services.import_from_file.core.file_reader.pd.read_csv")
+    @patch("drf_commons.services.import_from_file.core.file_reader.pd.read_csv")
     def test_read_csv_calls_pandas_read_csv(self, mock_read_csv):
         """Test read_file calls pandas read_csv for CSV files."""
         mock_read_csv.return_value = pd.DataFrame()

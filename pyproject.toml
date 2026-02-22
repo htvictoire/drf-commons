@@ -1,18 +1,30 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=68.0", "setuptools-scm>=8.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "drf-commons"
-version = "1.0.1"
+dynamic = ["version"]
 authors = [
     {name = "Victoire HABAMUNGU", email = "contact@htvictoire.me"}
 ]
-description = "Django REST Framework Common Utilities for production APIs"
+description = "Production-grade utilities, base classes, and architectural abstractions for Django REST Framework"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
-keywords = ["django", "rest-framework", "drf", "utilities", "api"]
+keywords = [
+    "django",
+    "rest-framework",
+    "drf",
+    "api",
+    "utilities",
+    "mixins",
+    "bulk-operations",
+    "serializers",
+    "viewsets",
+    "audit-trail",
+    "soft-delete",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -25,6 +37,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Framework :: Django",
     "Framework :: Django :: 3.2",
     "Framework :: Django :: 4.0",
@@ -32,6 +45,11 @@ classifiers = [
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
     "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 dependencies = [
     "Django>=3.2",
@@ -48,14 +66,18 @@ build = ["build>=1.0", "twine>=6.0"]
 docs = ["sphinx>=8.1", "furo>=2024.8.6"]
 
 [project.urls]
-Homepage = "https://github.com/htvictoire/drf-common"
-Repository = "https://github.com/htvictoire/drf-common"
-Issues = "https://github.com/htvictoire/drf-common/issues"
+Homepage = "https://github.com/htvictoire/drf-commons"
+Repository = "https://github.com/htvictoire/drf-commons"
+Issues = "https://github.com/htvictoire/drf-commons/issues"
 Documentation = "https://drf-commons.readthedocs.io/"
+Changelog = "https://drf-commons.readthedocs.io/en/latest/changelog.html"
 
 [tool.setuptools]
 zip-safe = false
 include-package-data = true
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
 
 [tool.setuptools.packages.find]
 include = ["drf_commons*"]

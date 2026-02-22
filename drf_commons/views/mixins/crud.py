@@ -20,6 +20,7 @@ class CreateModelMixin(BulkDirectSerializerContractMixin):
     """
 
     return_data_on_create = False
+
     def on_create_message(self):
         return f"{get_model_name(self)} created successfully"
 
