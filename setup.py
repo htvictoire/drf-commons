@@ -12,10 +12,9 @@ def get_long_description():
 
 
 def get_version():
-    version = {}
-    with open(os.path.join(this_directory, "drf_commons", "__init__.py")) as f:
-        exec(f.read(), version)
-    return version.get("__version__")
+    version_path = os.path.join(this_directory, ".VERSION")
+    with open(version_path, encoding="utf-8") as f:
+        return f.read().strip()
 
 
 setup(
@@ -70,7 +69,6 @@ setup(
         "Framework :: Django :: 5.1",
         "Framework :: Django :: 5.2",
         "Framework :: Django :: 6.0",
-        "Framework :: Django REST Framework",
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Typing :: Typed",
