@@ -4,16 +4,13 @@ Service integration tests for import/export functionality.
 Tests services with real files and database operations.
 """
 
-import os
-import tempfile
 from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import TestCase
 
 import openpyxl
-import pandas as pd
 
 from drf_commons.common_tests.factories import UserFactory
 from drf_commons.services.export_file.service import ExportService

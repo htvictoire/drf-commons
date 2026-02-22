@@ -1,8 +1,12 @@
 """Deferred write operation primitives."""
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from rest_framework import serializers
+
+if TYPE_CHECKING:
+    from .base import ConfigurableRelatedFieldMixin
 
 
 @dataclass

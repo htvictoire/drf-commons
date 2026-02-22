@@ -7,3 +7,4 @@ Keeping the command import here ensures Django discovers it when only
 
 from drf_commons.services.management.commands.generate_import_template import Command
 
+__all__ = ["Command"]

@@ -7,8 +7,6 @@ that provide advanced configuration options.
 
 from django.contrib.auth import get_user_model
 
-from rest_framework import serializers
-
 from drf_commons.common_tests.base_cases import SerializerTestCase
 from drf_commons.common_tests.factories import UserFactory
 from drf_commons.common_tests.serializers import UserSerializerForTesting
@@ -19,8 +17,6 @@ from ..custom import (
 )
 
 User = get_user_model()
-
-
 
 
 class FlexibleFieldTests(SerializerTestCase):

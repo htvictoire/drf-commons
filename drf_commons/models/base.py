@@ -12,11 +12,11 @@ from .mixins import JsonModelMixin, SoftDeleteMixin, TimeStampMixin, UserActionM
 
 
 class BaseModelMixin(
-        JsonModelMixin,
-        UserActionMixin,
-        TimeStampMixin,
-        SoftDeleteMixin
-    ):
+    JsonModelMixin,
+    UserActionMixin,
+    TimeStampMixin,
+    SoftDeleteMixin,
+):
     """
     Abstract base model that provides common functionality for all models.
 

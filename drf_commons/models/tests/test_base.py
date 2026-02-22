@@ -57,8 +57,8 @@ class BaseModelMixinTests(ModelTestCase):
         meta = BaseModelForTesting._meta
 
         self.assertFalse(meta.abstract)
-        self.assertEqual(meta.ordering, ["-created_at"])
-        self.assertEqual(meta.get_latest_by, "-created_at")
+        self.assertEqual(meta.ordering, [])
+        self.assertIsNone(meta.get_latest_by)
 
     def test_get_json_basic(self):
         """Test basic JSON serialization."""
