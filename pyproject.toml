@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "drf-commons"
-version = "1.0.2"
+dynamic = ["version"]
 authors = [
     {name = "Victoire HABAMUNGU", email = "contact@htvictoire.me"}
 ]
@@ -76,6 +76,9 @@ Changelog = "https://drf-commons.readthedocs.io/en/latest/changelog.html"
 [tool.setuptools]
 zip-safe = false
 include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {file = ".VERSION"}
 
 [tool.setuptools.packages.find]
 include = ["drf_commons*"]
