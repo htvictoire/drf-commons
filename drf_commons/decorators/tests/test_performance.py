@@ -20,8 +20,8 @@ class ApiPerformanceMonitorTests(DrfCommonTestCase):
         super().setUp()
         self.factory = RequestFactory()
 
-    @patch("decorators.performance.Categories")
-    @patch("decorators.performance.time")
+    @patch("drf_commons.decorators.performance.Categories")
+    @patch("drf_commons.decorators.performance.time")
     def test_fast_api_performance_monitoring(self, mock_time, mock_categories):
         """Test performance monitoring for fast API calls."""
         mock_logger = Mock()
@@ -49,8 +49,8 @@ class ApiPerformanceMonitorTests(DrfCommonTestCase):
 
         self.assertEqual(response.content, b"OK")
 
-    @patch("decorators.performance.Categories")
-    @patch("decorators.performance.time")
+    @patch("drf_commons.decorators.performance.Categories")
+    @patch("drf_commons.decorators.performance.time")
     def test_slow_api_performance_monitoring(self, mock_time, mock_categories):
         """Test performance monitoring for slow API calls."""
         mock_logger = Mock()
@@ -72,8 +72,8 @@ class ApiPerformanceMonitorTests(DrfCommonTestCase):
 
         self.assertEqual(response.content, b"OK")
 
-    @patch("decorators.performance.Categories")
-    @patch("decorators.performance.time")
+    @patch("drf_commons.decorators.performance.Categories")
+    @patch("drf_commons.decorators.performance.time")
     def test_api_performance_monitoring_with_exception(
         self, mock_time, mock_categories
     ):
@@ -98,8 +98,8 @@ class ApiPerformanceMonitorTests(DrfCommonTestCase):
         mock_logger.info.assert_not_called()
         mock_logger.warning.assert_not_called()
 
-    @patch("decorators.performance.Categories")
-    @patch("decorators.performance.time")
+    @patch("drf_commons.decorators.performance.Categories")
+    @patch("drf_commons.decorators.performance.time")
     def test_custom_threshold(self, mock_time, mock_categories):
         """Test performance monitoring with custom threshold."""
         mock_logger = Mock()
@@ -119,8 +119,8 @@ class ApiPerformanceMonitorTests(DrfCommonTestCase):
         )
         mock_logger.info.assert_not_called()
 
-    @patch("decorators.performance.Categories")
-    @patch("decorators.performance.time")
+    @patch("drf_commons.decorators.performance.Categories")
+    @patch("drf_commons.decorators.performance.time")
     def test_default_threshold(self, mock_time, mock_categories):
         """Test performance monitoring with default threshold."""
         mock_logger = Mock()
@@ -139,8 +139,8 @@ class ApiPerformanceMonitorTests(DrfCommonTestCase):
             "Slow API: GET /test-endpoint/ - 1.2000s"
         )
 
-    @patch("decorators.performance.Categories")
-    @patch("decorators.performance.time")
+    @patch("drf_commons.decorators.performance.Categories")
+    @patch("drf_commons.decorators.performance.time")
     def test_performance_monitoring_preserves_response(
         self, mock_time, mock_categories
     ):
@@ -164,8 +164,8 @@ class ApiPerformanceMonitorTests(DrfCommonTestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response["Custom-Header"], "value")
 
-    @patch("decorators.performance.Categories")
-    @patch("decorators.performance.time")
+    @patch("drf_commons.decorators.performance.Categories")
+    @patch("drf_commons.decorators.performance.time")
     def test_performance_monitoring_with_query_parameters(
         self, mock_time, mock_categories
     ):

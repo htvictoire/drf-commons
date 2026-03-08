@@ -123,7 +123,7 @@ class FileExportMixinTests(ViewTestCase):
 
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.data["message"], "Data export failed")
-        self.assertIn("error_id", response.data)
+        self.assertIn("error_id", response.data["data"])
         self.assertIn("export", response.data["errors"])
         self.assertNotIn("database connection failed", str(response.data))
         self.assertNotIn("secret://internal", str(response.data))

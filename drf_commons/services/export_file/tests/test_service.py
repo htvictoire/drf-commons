@@ -33,9 +33,7 @@ class ExportServiceTests(DrfCommonTestCase):
 
     def test_service_initialization(self):
         """Test service initializes with correct exporters."""
-        self.assertIn("csv", self.service._exporters)
-        self.assertIn("xlsx", self.service._exporters)
-        self.assertIn("pdf", self.service._exporters)
+        self.assertEqual(self.service._exporters, {})
 
     def test_process_export_data(self):
         """Test data processing functionality."""

@@ -12,8 +12,8 @@ from ..cache import cache_debug
 class CacheDebugTests(DrfCommonTestCase):
     """Tests for cache_debug decorator."""
 
-    @patch("decorators.cache.Categories")
-    @patch("decorators.cache.time")
+    @patch("drf_commons.decorators.cache.Categories")
+    @patch("drf_commons.decorators.cache.time")
     def test_cache_debug_basic(self, mock_time, mock_categories):
         """Test basic cache debug logging."""
         mock_logger = Mock()
@@ -42,8 +42,8 @@ class CacheDebugTests(DrfCommonTestCase):
 
         self.assertEqual(result, "cached_result")
 
-    @patch("decorators.cache.Categories")
-    @patch("decorators.cache.time")
+    @patch("drf_commons.decorators.cache.Categories")
+    @patch("drf_commons.decorators.cache.time")
     def test_cache_debug_with_custom_key_func(self, mock_time, mock_categories):
         """Test cache debug with custom cache key function."""
         mock_logger = Mock()
@@ -67,8 +67,8 @@ class CacheDebugTests(DrfCommonTestCase):
 
         self.assertEqual(result, "cached_result")
 
-    @patch("decorators.cache.Categories")
-    @patch("decorators.cache.time")
+    @patch("drf_commons.decorators.cache.Categories")
+    @patch("drf_commons.decorators.cache.time")
     def test_cache_debug_no_arguments(self, mock_time, mock_categories):
         """Test cache debug with function that has no arguments."""
         mock_logger = Mock()
@@ -90,8 +90,8 @@ class CacheDebugTests(DrfCommonTestCase):
         mock_logger.debug.assert_any_call("Cache operation completed in 0.0500s")
         self.assertEqual(result, "no_args_result")
 
-    @patch("decorators.cache.Categories")
-    @patch("decorators.cache.time")
+    @patch("drf_commons.decorators.cache.Categories")
+    @patch("drf_commons.decorators.cache.time")
     def test_cache_debug_with_complex_arguments(self, mock_time, mock_categories):
         """Test cache debug with complex argument types."""
         mock_logger = Mock()
@@ -111,8 +111,8 @@ class CacheDebugTests(DrfCommonTestCase):
         self.assertEqual(len(mock_logger.debug.call_args_list), 2)
         mock_logger.debug.assert_any_call("Cache operation completed in 0.2000s")
 
-    @patch("decorators.cache.Categories")
-    @patch("decorators.cache.time")
+    @patch("drf_commons.decorators.cache.Categories")
+    @patch("drf_commons.decorators.cache.time")
     def test_cache_debug_preserves_exceptions(self, mock_time, mock_categories):
         """Test that cache debug preserves exceptions from decorated function."""
         mock_logger = Mock()
@@ -131,8 +131,8 @@ class CacheDebugTests(DrfCommonTestCase):
         # Should still log cache operation start and completion timing
         mock_logger.debug.assert_any_call("Cache operation completed in 0.1000s")
 
-    @patch("decorators.cache.Categories")
-    @patch("decorators.cache.time")
+    @patch("drf_commons.decorators.cache.Categories")
+    @patch("drf_commons.decorators.cache.time")
     def test_cache_debug_custom_key_func_with_exception(
         self, mock_time, mock_categories
     ):
@@ -154,8 +154,8 @@ class CacheDebugTests(DrfCommonTestCase):
 
         self.assertEqual(str(cm.exception), "Key generation failed")
 
-    @patch("decorators.cache.Categories")
-    @patch("decorators.cache.time")
+    @patch("drf_commons.decorators.cache.Categories")
+    @patch("drf_commons.decorators.cache.time")
     def test_cache_debug_return_value_preservation(self, mock_time, mock_categories):
         """Test that cache debug preserves all types of return values."""
         mock_logger = Mock()
@@ -196,8 +196,8 @@ class CacheDebugTests(DrfCommonTestCase):
         string_result = test_function("string")
         self.assertEqual(string_result, "string_result")
 
-    @patch("decorators.cache.Categories")
-    @patch("decorators.cache.time")
+    @patch("drf_commons.decorators.cache.Categories")
+    @patch("drf_commons.decorators.cache.time")
     def test_cache_debug_key_generation_consistency(self, mock_time, mock_categories):
         """Test that cache key generation is consistent for same inputs."""
         mock_logger = Mock()

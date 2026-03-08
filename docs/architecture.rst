@@ -1,169 +1,255 @@
 Architecture
 ============
 
-This document describes how ``drf-commons`` components interact at runtime and what architectural constraints they impose.
+drf-commons is organized as a structural layer composed atop Django REST
+Framework's own extension points. Understanding this architecture is essential
+for effective integration and extension.
 
-Architectural Thesis
---------------------
+System Layers
+-------------
 
-The library is not a replacement for DRF. It is a collection of composition-oriented building blocks that enforce consistent behavior around:
+drf-commons maps to a clean vertical slice of a DRF-based application:
 
-- response envelopes,
-- bulk endpoint mechanics,
-- import/export workflows,
-- request-scoped user context,
-- category-aware observability.
+.. code-block:: text
 
-The design preference is thin abstractions over DRF, with most policy encoded as mixin behavior plus settings-driven defaults.
+   ┌─────────────────────────────────────────────┐
+   │               HTTP Request                  │
+   └──────────────────────┬──────────────────────┘
+                          │
+   ┌──────────────────────▼──────────────────────┐
+   │            Middleware Layer                  │
+   │  CurrentUserMiddleware                       │
+   │  SQLDebugMiddleware  ProfilerMiddleware       │
+   └──────────────────────┬──────────────────────┘
+                          │
+   ┌──────────────────────▼──────────────────────┐
+   │              View Layer                      │
+   │  BaseViewSet  BulkViewSet  ReadOnlyViewSet   │
+   │  ImportableViewSet  BulkImportableViewSet    │
+   │  (CRUD / Bulk / Import / Export Mixins)      │
+   └──────────────────────┬──────────────────────┘
+                          │
+   ┌──────────────────────▼──────────────────────┐
+   │           Serializer Layer                   │
+   │  BaseModelSerializer                        │
+   │  BulkUpdateListSerializer                   │
+   │  ConfigurableRelatedField variants           │
+   └──────────────────────┬──────────────────────┘
+                          │
+   ┌──────────────────────▼──────────────────────┐
+   │             Model Layer                      │
+   │  BaseModelMixin  TimeStampMixin             │
+   │  UserActionMixin  SoftDeleteMixin           │
+   │  VersionMixin  SlugMixin  MetaMixin          │
+   │  IdentityMixin  AddressMixin                │
+   └──────────────────────┬──────────────────────┘
+                          │
+   ┌──────────────────────▼──────────────────────┐
+   │           Service Layer                      │
+   │  ExportService  FileImportService            │
+   └─────────────────────────────────────────────┘
 
-Component Topology
-------------------
+   ┌─────────────────────────────────────────────┐
+   │         Cross-Cutting Concerns               │
+   │  Context User (ContextVar)                  │
+   │  StructuredLogger  Debug Utilities           │
+   │  Decorators  Pagination  Filters             │
+   └─────────────────────────────────────────────┘
 
-Request-path components:
+Package Structure
+-----------------
 
-- ``middlewares.current_user`` and ``current_user.utils``
-- ``views.mixins.*``
-- ``serializers.*``
-- ``models.*``
-- ``response.utils``
+.. code-block:: text
 
-Data pipeline components:
+   drf_commons/
+   ├── apps.py                    # Django AppConfig — startup validation
+   ├── __init__.py                # Package version export
+   │
+   ├── common_conf/               # Configuration management
+   │   ├── settings.py            # CommonSettings — COMMON namespace resolution
+   │   ├── django_settings.py     # Test Django configuration
+   │   └── test_urls.py / test_views.py
+   │
+   ├── current_user/              # ContextVar-based user management
+   │   └── utils.py
+   │
+   ├── models/                    # Model mixins and fields
+   │   ├── base.py                # BaseModelMixin + composition mixins
+   │   ├── mixins.py              # JsonModelMixin
+   │   ├── content.py             # SlugMixin, MetaMixin, VersionMixin
+   │   ├── person.py              # IdentityMixin, AddressMixin
+   │   └── fields.py             # CurrentUserField
+   │
+   ├── views/                     # ViewSet classes and action mixins
+   │   ├── base.py               # Pre-composed ViewSet classes
+   │   └── mixins/
+   │       ├── crud.py           # CRUD action mixins
+   │       ├── bulk.py           # Bulk operation mixins
+   │       ├── import_export.py  # File import/export mixins
+   │       └── shared.py         # Shared mixin utilities
+   │
+   ├── serializers/               # Serializer and field system
+   │   ├── base.py               # BaseModelSerializer, BulkUpdateListSerializer
+   │   └── fields/
+   │       ├── base.py           # ConfigurableRelatedField base classes
+   │       ├── single.py         # Single relation field variants
+   │       ├── many.py           # Many-to-many field variants
+   │       ├── readonly.py       # Read-only field variants
+   │       ├── custom.py         # Custom output field
+   │       └── mixins/           # Field behaviour mixins
+   │
+   ├── middlewares/               # Django middleware
+   │   ├── current_user.py       # CurrentUserMiddleware (sync/async)
+   │   └── debug.py              # Debug/profiling middleware
+   │
+   ├── pagination/                # Pagination classes
+   │   └── base.py
+   │
+   ├── filters/                   # Filter backends
+   │   └── ordering/
+   │       └── computed.py       # ComputedOrderingFilter
+   │
+   ├── response/                  # Response utilities
+   │   └── utils.py              # success_response, error_response
+   │
+   ├── decorators/                # Function/method decorators
+   │   ├── cache.py
+   │   ├── logging.py
+   │   ├── database.py
+   │   └── performance.py
+   │
+   ├── services/                  # Business logic services
+   │   ├── export_file/          # Multi-format export service
+   │   └── import_from_file/     # Multi-model import service
+   │
+   ├── debug/                     # Debug and observability
+   │   ├── logger.py             # StructuredLogger
+   │   └── utils.py              # Debug utilities
+   │
+   └── utils/                     # Internal utilities
+       └── middleware_checker.py
 
-- ``services.import_from_file.*``
-- ``services.export_file.*``
-- ``services.management.commands.generate_import_template``
+Design Decisions
+----------------
 
-Observability components:
+ContextVar for User Resolution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- ``debug.core.categories``
-- ``debug.logger``
-- ``debug.utils``
-- ``debug.logging.*``
-- ``decorators.*``
-- ``middlewares.debug``
+Standard DRF patterns for tracking the current user involve threading request
+context through serializer ``context`` dictionaries. This pattern is:
 
-Cross-cutting configuration:
+* **Fragile** — requires every serializer in the chain to explicitly pass context
+* **Async-unsafe** — thread-local storage breaks under concurrent async tasks
+* **Boilerplate-heavy** — creates coupling between serializer and view layers
 
-- ``common_conf.settings`` with ``COMMON_`` namespaced override precedence.
+drf-commons uses Python's :class:`contextvars.ContextVar`, introduced in
+Python 3.7 and designed precisely for this use case. ``CurrentUserMiddleware``
+sets the user into the context variable at request start and resets it at
+request end. The context is correctly scoped to each coroutine in async
+deployments.
 
-Request Lifecycle (Synchronous API Path)
-----------------------------------------
+.. code-block:: python
 
-Typical API call flow in a deployment using this library:
+   # Internal implementation (simplified)
+   _current_user: ContextVar[Optional[AbstractBaseUser]] = ContextVar(
+       "_current_user", default=None
+   )
 
-1. ``CurrentUserMiddleware`` binds ``request.user`` to thread-local accessor.
-2. Optional debug middleware captures timing/query baselines.
-3. View mixin executes CRUD/bulk/import/export behavior.
-4. Serializers perform validation and representation.
-5. Model mixins apply actor/timestamp/soft-delete/version logic where ``save()`` is used.
-6. Response helper builds envelope with timestamp and success/error shape.
-7. Middleware clears thread-local context and appends debug headers/logging if enabled.
+   def get_current_user():
+       return _current_user.get()
 
-Key constraint: thread-local actor propagation works only within the request thread lifecycle.
+Mixin Composition at Every Layer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Write Path Architecture
------------------------
+Every drf-commons component is a mixin, not a base class. This means:
 
-The write stack uses layered responsibilities:
+* **ViewSets** are explicit compositions of action mixins
+* **Model classes** are explicit compositions of field/behavior mixins
+* **Serializers** compose field types from the configurable field system
 
-- views decide endpoint contract and list-vs-single update path,
-- serializers decide field conversion and object validation,
-- models enforce attribution/metadata policy on ``save``-based writes,
-- service layer handles complex file-based ingestion/export outside serializer scope.
+This pattern makes the behavior of each class fully visible at its definition
+site. A developer reading ``class BulkViewSet`` immediately sees every action
+it provides through its MRO.
 
-This separation is pragmatic but not strict domain-driven architecture. For large systems, a separate service/domain layer may still be required to centralize business invariants.
+Transaction Safety by Default
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Import Architecture
--------------------
+:class:`~drf_commons.serializers.base.BaseModelSerializer` wraps all write
+operations in ``django.db.transaction.atomic()``. Bulk operations in
+:class:`~drf_commons.views.mixins.bulk.BulkCreateModelMixin` and
+:class:`~drf_commons.views.mixins.bulk.BulkUpdateModelMixin` are also wrapped
+in atomic blocks. This ensures partial writes are never committed.
 
-The import system is configuration-driven and staged:
+Batch-Size-Aware Bulk Operations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. config validation,
-2. file parsing,
-3. header strictness check,
-4. lookup prefetch,
-5. per-step model processing in declared order,
-6. create/update persistence with fallback,
-7. summary construction.
+Bulk operation mixins read batch size from the ``COMMON`` settings namespace
+at runtime. This allows operators to tune batch sizes per environment without
+code changes. The viewset's ``bulk_batch_size`` attribute overrides the global
+setting when set, allowing per-resource tuning.
 
-The pipeline is optimized for operational imports, not event-stream ingestion. It favors deterministic templates over flexible schema evolution.
+Lazy Optional Dependency Loading
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Export Architecture
--------------------
+Export and import services use lazy imports:
 
-Export flow is request-driven:
+.. code-block:: python
 
-1. caller supplies selected fields and rows,
-2. service normalizes rows and metadata,
-3. format-specific exporter renders CSV/XLSX/PDF,
-4. response is returned immediately.
+   def export_xlsx(self, data):
+       try:
+           import openpyxl
+       except ImportError:
+           raise ImproperlyConfigured(
+               "Install drf-commons[export] to use XLSX export."
+           )
 
-This is suitable for interactive admin exports. For large batch reporting, async workflows are more appropriate.
+This keeps the core package installable without any optional dependencies and
+produces actionable error messages when a feature is used without its
+dependencies installed.
 
-Observability Architecture
---------------------------
+Startup-Time Validation
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-Category gating is central:
+The :class:`~drf_commons.apps.DrfCommonsConfig` ``ready()`` method invokes
+:func:`~drf_commons.utils.middleware_checker.enforce_current_user_middleware_if_used`.
+This function inspects the application's installed models and raises
+:class:`django.core.exceptions.ImproperlyConfigured` at startup if:
 
-- each logger call can be disabled by category,
-- disabled categories receive a ``NullLogger`` and become no-op,
-- production mode further restricts categories to configured safe subset.
+* Any model uses :class:`~drf_commons.models.base.UserActionMixin` or
+  :class:`~drf_commons.models.fields.CurrentUserField`
+* ``CurrentUserMiddleware`` is not present in ``MIDDLEWARE``
 
-Consequence:
+This surfaces configuration errors at startup rather than at the first API
+request, a significantly better debugging experience.
 
-- instrumentation call sites remain in business code without per-call ``if enabled`` checks,
-- observability behavior is controlled from settings rather than code forks.
+Extension Points
+----------------
 
-Configuration Architecture
---------------------------
+drf-commons is designed to be extended at every layer:
 
-``common_conf.settings`` resolves settings in order:
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
 
-1. ``COMMON_<KEY>``
-2. ``<KEY>``
-3. default
+   * - Component
+     - Extension Point
+   * - ViewSets
+     - Compose custom mixins with ``GenericViewSet``
+   * - Model Mixins
+     - Subclass and override ``save()``, ``soft_delete()``, etc.
+   * - Serializer Fields
+     - Subclass ``ConfigurableRelatedField``, implement abstract methods
+   * - Response Format
+     - Override ``success_response`` / ``error_response`` functions
+   * - Import Config
+     - Provide ``import_transforms`` dict for custom field transformations
+   * - Export Config
+     - Provide ``export_field_config`` dict and ``column_config`` per export
+   * - Pagination
+     - Subclass ``StandardPageNumberPagination``, override ``page_size``
+   * - Ordering
+     - Add ``computed_ordering_fields`` dict to ViewSet for annotated ordering
+   * - Logging
+     - Subclass ``StructuredLogger`` or use decorator variants
 
-This allows incremental adoption in legacy projects that already define similarly named global settings, while still encouraging namespaced configuration.
-
-Architectural Trade-offs
-------------------------
-
-Strengths:
-
-- low-friction DRF integration via mixins,
-- strong reuse for repetitive API patterns,
-- explicit, inspectable import/export behavior.
-
-Constraints:
-
-- middleware-coupled actor attribution,
-- some high-throughput paths remain memory-heavy,
-- bulk update safety depends on ID-based row mapping in view-layer orchestration,
-- strict template coupling for import workflows.
-
-When this architecture fits
----------------------------
-
-- backend platforms with many similar CRUD resources,
-- admin-heavy APIs requiring tabular import/export,
-- teams that value consistent endpoint envelopes and operational tooling.
-
-When to avoid broad adoption
-----------------------------
-
-- event-driven systems where request-thread context is not the dominant execution model,
-- APIs requiring strict optimistic-concurrency semantics on every write,
-- workflows requiring fully asynchronous, resumable large-scale data ingestion.
-
-Adoption and migration strategy
--------------------------------
-
-Recommended rollout sequence:
-
-1. adopt response and pagination helpers first (low coupling),
-2. add view mixins for new endpoints only,
-3. introduce model mixins on selected models with explicit backfill plans,
-4. add import/export for operational domains with clear runbooks,
-5. finally enable debug/decorator instrumentation categories in controlled stages.
-
-This sequence minimizes regression surface and keeps rollback simple.
+See :doc:`extensibility` for detailed extension recipes.

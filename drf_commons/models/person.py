@@ -6,13 +6,10 @@ representing people and their associated information like identity
 and address details.
 """
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from django.db import models
 from django.utils import timezone
-
-from .base import BaseModelMixin
-from .mixins import UserActionMixin, TimeStampMixin, SoftDeleteMixin
 
 
 class IdentityMixin(models.Model):

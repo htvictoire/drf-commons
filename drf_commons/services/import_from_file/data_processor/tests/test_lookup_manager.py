@@ -6,7 +6,6 @@ Tests lookup management functionality.
 
 
 import pandas as pd
-from django.contrib.auth import get_user_model
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 from drf_commons.common_tests.factories import UserFactory
@@ -70,7 +69,6 @@ class LookupManagerTests(DrfCommonTestCase):
 
     def test_prefetch_lookups_uses_database_field_filtering(self):
         """Lookup prefetch should use ORM field filtering for model fields."""
-        User = get_user_model()
         user = UserFactory(username="lookup_user")
 
         manager = LookupManager(self.config)

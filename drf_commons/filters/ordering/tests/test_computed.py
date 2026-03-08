@@ -5,7 +5,6 @@ Tests for ComputedOrderingFilter.
 from unittest.mock import Mock, patch
 
 from django.db import models
-from rest_framework.filters import OrderingFilter
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 

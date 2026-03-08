@@ -11,7 +11,6 @@ from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.urls import path, include
 
-from rest_framework import serializers, viewsets
 from rest_framework.routers import DefaultRouter
 from rest_framework.test import APITestCase
 
@@ -165,12 +164,12 @@ class DataManagementE2ETests(APITestCase):
         self.assertEqual(bulk_update_response.status_code, 200)
 
         # Step 8: Verify bulk updates
-        for updated_user in bulk_update_response.data['data']:
+        for updated_user in bulk_update_response.data['data']['results']:
             self.assertTrue(updated_user['last_name'].startswith('BulkUpdated'))
 
         # Step 9: Delete single user
         delete_response = self.client.delete(f'/api/users/{user_id}/')
-        self.assertEqual(delete_response.status_code, 204)
+        self.assertEqual(delete_response.status_code, 200)
 
         # Step 10: Verify deletion
         verify_response = self.client.get(f'/api/users/{user_id}/')

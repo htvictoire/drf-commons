@@ -27,8 +27,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    
-    #DRF Commons Middlewares
+    # DRF Commons Middlewares
     "drf_commons.middlewares.current_user.CurrentUserMiddleware",
     "drf_commons.middlewares.debug.DebugMiddleware",
 ]

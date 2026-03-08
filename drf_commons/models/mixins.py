@@ -85,6 +85,7 @@ class TimeStampMixin(models.Model):
     class Meta:
         abstract = True
 
+
 class SoftDeleteMixin(models.Model):
     """
     Mixin that provides soft delete functionality.

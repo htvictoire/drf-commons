@@ -12,9 +12,9 @@ from ..database import log_db_query
 class LogDbQueryTests(DrfCommonTestCase):
     """Tests for log_db_query decorator."""
 
-    @patch("decorators.database.Categories")
-    @patch("decorators.database.connection")
-    @patch("decorators.database.time")
+    @patch("drf_commons.decorators.database.Categories")
+    @patch("drf_commons.decorators.database.connection")
+    @patch("drf_commons.decorators.database.time")
     def test_db_query_logging_basic(self, mock_time, mock_connection, mock_categories):
         """Test basic database query logging."""
         mock_logger = Mock()
@@ -36,7 +36,7 @@ class LogDbQueryTests(DrfCommonTestCase):
             return "result"
 
         # Mock len() calls to simulate query count changes
-        with patch("decorators.database.len") as mock_len:
+        with patch("drf_commons.decorators.database.len") as mock_len:
             mock_len.side_effect = [2, 3]  # 2 initial, 3 after execution
             result = test_function()
 
@@ -57,9 +57,9 @@ class LogDbQueryTests(DrfCommonTestCase):
 
         self.assertEqual(result, "result")
 
-    @patch("decorators.database.Categories")
-    @patch("decorators.database.connection")
-    @patch("decorators.database.time")
+    @patch("drf_commons.decorators.database.Categories")
+    @patch("drf_commons.decorators.database.connection")
+    @patch("drf_commons.decorators.database.time")
     def test_db_query_logging_no_queries(
         self, mock_time, mock_connection, mock_categories
     ):
@@ -74,7 +74,7 @@ class LogDbQueryTests(DrfCommonTestCase):
         def test_function():
             return "result"
 
-        with patch("decorators.database.len") as mock_len:
+        with patch("drf_commons.decorators.database.len") as mock_len:
             mock_len.side_effect = [0, 0]  # No queries before or after
             result = test_function()
 
@@ -88,9 +88,9 @@ class LogDbQueryTests(DrfCommonTestCase):
 
         self.assertEqual(result, "result")
 
-    @patch("decorators.database.Categories")
-    @patch("decorators.database.connection")
-    @patch("decorators.database.time")
+    @patch("drf_commons.decorators.database.Categories")
+    @patch("drf_commons.decorators.database.connection")
+    @patch("drf_commons.decorators.database.time")
     def test_db_query_logging_multiple_queries(
         self, mock_time, mock_connection, mock_categories
     ):
@@ -119,7 +119,7 @@ class LogDbQueryTests(DrfCommonTestCase):
             )
             return "result"
 
-        with patch("decorators.database.len") as mock_len:
+        with patch("drf_commons.decorators.database.len") as mock_len:
             mock_len.side_effect = [1, 4]  # 1 initial, 4 after execution
             test_function()
 
@@ -139,9 +139,9 @@ class LogDbQueryTests(DrfCommonTestCase):
         for expected_call in expected_debug_calls:
             self.assertIn(expected_call, actual_debug_calls)
 
-    @patch("decorators.database.Categories")
-    @patch("decorators.database.connection")
-    @patch("decorators.database.time")
+    @patch("drf_commons.decorators.database.Categories")
+    @patch("drf_commons.decorators.database.connection")
+    @patch("drf_commons.decorators.database.time")
     def test_db_query_logging_with_exception(
         self, mock_time, mock_connection, mock_categories
     ):
@@ -156,7 +156,7 @@ class LogDbQueryTests(DrfCommonTestCase):
         def test_function():
             raise ValueError("Database error")
 
-        with patch("decorators.database.len") as mock_len:
+        with patch("drf_commons.decorators.database.len") as mock_len:
             mock_len.side_effect = [0, 0]
 
             with self.assertRaises(ValueError):
@@ -167,9 +167,9 @@ class LogDbQueryTests(DrfCommonTestCase):
             "Error Operation test_function failed after 0.3000s: Database error"
         )
 
-    @patch("decorators.database.Categories")
-    @patch("decorators.database.connection")
-    @patch("decorators.database.time")
+    @patch("drf_commons.decorators.database.Categories")
+    @patch("drf_commons.decorators.database.connection")
+    @patch("drf_commons.decorators.database.time")
     def test_db_query_logging_empty_query_type(
         self, mock_time, mock_connection, mock_categories
     ):
@@ -184,16 +184,16 @@ class LogDbQueryTests(DrfCommonTestCase):
         def test_function():
             return "result"
 
-        with patch("decorators.database.len") as mock_len:
+        with patch("drf_commons.decorators.database.len") as mock_len:
             mock_len.side_effect = [0, 0]
             test_function()
 
         # Should log with empty prefix
         mock_logger.info.assert_called_with(" test_function: 0 queries in 0.1000s")
 
-    @patch("decorators.database.Categories")
-    @patch("decorators.database.connection")
-    @patch("decorators.database.time")
+    @patch("drf_commons.decorators.database.Categories")
+    @patch("drf_commons.decorators.database.connection")
+    @patch("drf_commons.decorators.database.time")
     def test_db_query_logging_default_query_type(
         self, mock_time, mock_connection, mock_categories
     ):
@@ -208,16 +208,16 @@ class LogDbQueryTests(DrfCommonTestCase):
         def test_function():
             return "result"
 
-        with patch("decorators.database.len") as mock_len:
+        with patch("drf_commons.decorators.database.len") as mock_len:
             mock_len.side_effect = [0, 0]
             test_function()
 
         # Should log with empty prefix (default behavior)
         mock_logger.info.assert_called_with(" test_function: 0 queries in 0.1000s")
 
-    @patch("decorators.database.Categories")
-    @patch("decorators.database.connection")
-    @patch("decorators.database.time")
+    @patch("drf_commons.decorators.database.Categories")
+    @patch("drf_commons.decorators.database.connection")
+    @patch("drf_commons.decorators.database.time")
     def test_db_query_logging_preserves_return_value(
         self, mock_time, mock_connection, mock_categories
     ):
@@ -232,7 +232,7 @@ class LogDbQueryTests(DrfCommonTestCase):
         def test_function():
             return {"key": "value", "number": 42}
 
-        with patch("decorators.database.len") as mock_len:
+        with patch("drf_commons.decorators.database.len") as mock_len:
             mock_len.side_effect = [0, 0]
             result = test_function()
 

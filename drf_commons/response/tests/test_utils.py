@@ -109,4 +109,3 @@ class ErrorResponseTestCase(DrfCommonTestCase):
 
         self.assertEqual(response.data["data"]["custom_field"], "custom_value")
         self.assertFalse(response.data["success"])
-

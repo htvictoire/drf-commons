@@ -21,9 +21,9 @@ class DebugMiddlewareTests(DrfCommonTestCase):
         super().setUp()
         self.factory = RequestFactory()
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.connection")
-    @patch("middlewares.debug.time")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.connection")
+    @patch("drf_commons.middlewares.debug.time")
     def test_middleware_initialization(
         self, mock_time, mock_connection, mock_categories
     ):
@@ -39,9 +39,9 @@ class DebugMiddlewareTests(DrfCommonTestCase):
         )
         self.assertEqual(middleware.logger, mock_logger)
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.connection")
-    @patch("middlewares.debug.time")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.connection")
+    @patch("drf_commons.middlewares.debug.time")
     def test_process_request(self, mock_time, mock_connection, mock_categories):
         """Test request processing."""
         mock_logger = Mock()
@@ -74,10 +74,10 @@ class DebugMiddlewareTests(DrfCommonTestCase):
         mock_logger.debug.assert_any_call("Remote IP: 192.168.1.1")
         mock_logger.debug.assert_any_call("Query params: {'param': ['value']}")
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.connection")
-    @patch("middlewares.debug.time")
-    @patch("middlewares.debug.settings")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.connection")
+    @patch("drf_commons.middlewares.debug.time")
+    @patch("drf_commons.middlewares.debug.settings")
     def test_process_response_normal(
         self, mock_settings, mock_time, mock_connection, mock_categories
     ):
@@ -117,10 +117,10 @@ class DebugMiddlewareTests(DrfCommonTestCase):
         self.assertEqual(response["X-Debug-Duration"], "0.5000s")
         self.assertEqual(response["X-Debug-Queries"], "3")
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.connection")
-    @patch("middlewares.debug.time")
-    @patch("middlewares.debug.settings")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.connection")
+    @patch("drf_commons.middlewares.debug.time")
+    @patch("drf_commons.middlewares.debug.settings")
     def test_process_response_slow_request(
         self, mock_settings, mock_time, mock_connection, mock_categories
     ):
@@ -148,10 +148,10 @@ class DebugMiddlewareTests(DrfCommonTestCase):
             "Slow request detected: 1.5000s for /test-path/"
         )
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.connection")
-    @patch("middlewares.debug.time")
-    @patch("middlewares.debug.settings")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.connection")
+    @patch("drf_commons.middlewares.debug.time")
+    @patch("drf_commons.middlewares.debug.settings")
     def test_process_response_high_query_count(
         self, mock_settings, mock_time, mock_connection, mock_categories
     ):
@@ -188,8 +188,8 @@ class DebugMiddlewareTests(DrfCommonTestCase):
             "High query count: 6 queries for /test-path/"
         )
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.time")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.time")
     def test_process_exception(self, mock_time, mock_categories):
         """Test exception processing."""
         mock_logger = Mock()
@@ -246,8 +246,8 @@ class SQLDebugMiddlewareTests(DrfCommonTestCase):
         super().setUp()
         self.factory = RequestFactory()
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.connection")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.connection")
     def test_middleware_initialization(self, mock_connection, mock_categories):
         """Test SQL middleware initialization."""
         mock_logger = Mock()
@@ -261,8 +261,8 @@ class SQLDebugMiddlewareTests(DrfCommonTestCase):
         )
         self.assertEqual(middleware.logger, mock_logger)
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.connection")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.connection")
     def test_process_request(self, mock_connection, mock_categories):
         """Test SQL request processing."""
         mock_logger = Mock()
@@ -278,9 +278,9 @@ class SQLDebugMiddlewareTests(DrfCommonTestCase):
         self.assertIsNone(result)
         self.assertEqual(request._sql_debug_initial_queries, 3)
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.connection")
-    @patch("middlewares.debug.settings")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.connection")
+    @patch("drf_commons.middlewares.debug.settings")
     def test_process_response_with_queries(
         self, mock_settings, mock_connection, mock_categories
     ):
@@ -327,8 +327,8 @@ class SQLDebugMiddlewareTests(DrfCommonTestCase):
             "Slow queries detected: 1 queries > 0.1s"
         )
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.connection")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.connection")
     def test_process_response_no_queries(self, mock_connection, mock_categories):
         """Test SQL response processing with no new queries."""
         mock_logger = Mock()
@@ -360,8 +360,8 @@ class ProfilerMiddlewareTests(DrfCommonTestCase):
         super().setUp()
         self.factory = RequestFactory()
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.settings")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.settings")
     def test_middleware_initialization_enabled(self, mock_settings, mock_categories):
         """Test profiler middleware initialization when enabled."""
         mock_logger = Mock()
@@ -378,8 +378,8 @@ class ProfilerMiddlewareTests(DrfCommonTestCase):
         self.assertEqual(middleware.logger, mock_logger)
         self.assertTrue(middleware.enabled)
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.settings")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.settings")
     def test_middleware_initialization_disabled(self, mock_settings, mock_categories):
         """Test profiler middleware initialization when disabled."""
         mock_categories.get_logger.return_value = mock_categories._null_logger
@@ -390,8 +390,8 @@ class ProfilerMiddlewareTests(DrfCommonTestCase):
 
         self.assertFalse(middleware.enabled)
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.settings")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.settings")
     def test_process_request_disabled(self, mock_settings, mock_categories):
         """Test profiler request processing when disabled."""
         mock_logger = Mock()
@@ -409,8 +409,8 @@ class ProfilerMiddlewareTests(DrfCommonTestCase):
         self.assertIsNone(result)
         self.assertFalse(hasattr(request, "_profiler"))
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.settings")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.settings")
     def test_process_request_enabled(self, mock_settings, mock_categories):
         """Test profiler request processing when enabled."""
         mock_logger = Mock()
@@ -424,7 +424,7 @@ class ProfilerMiddlewareTests(DrfCommonTestCase):
 
         request = self.factory.get("/test-path/")
 
-        with patch("middlewares.debug.cProfile") as mock_cprofile:
+        with patch("drf_commons.middlewares.debug.cProfile") as mock_cprofile:
             mock_profiler = Mock()
             mock_cprofile.Profile.return_value = mock_profiler
 
@@ -434,9 +434,8 @@ class ProfilerMiddlewareTests(DrfCommonTestCase):
             self.assertEqual(request._profiler, mock_profiler)
             mock_profiler.enable.assert_called_once()
 
-
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.settings")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.settings")
     def test_process_response_enabled(self, mock_settings, mock_categories):
         """Test profiler response processing when enabled."""
         mock_logger = Mock()
@@ -456,8 +455,8 @@ class ProfilerMiddlewareTests(DrfCommonTestCase):
 
         response = HttpResponse("OK")
 
-        with patch("middlewares.debug.io") as mock_io, patch(
-            "middlewares.debug.pstats"
+        with patch("drf_commons.middlewares.debug.io") as mock_io, patch(
+            "drf_commons.middlewares.debug.pstats"
         ) as mock_pstats:
 
             mock_stringio = Mock()
@@ -478,8 +477,8 @@ class ProfilerMiddlewareTests(DrfCommonTestCase):
             mock_logger.info.assert_any_call("Profiling results for /test-path/:")
             mock_logger.info.assert_any_call("Profiling data here")
 
-    @patch("middlewares.debug.Categories")
-    @patch("middlewares.debug.settings")
+    @patch("drf_commons.middlewares.debug.Categories")
+    @patch("drf_commons.middlewares.debug.settings")
     def test_process_response_disabled(self, mock_settings, mock_categories):
         """Test profiler response processing when disabled."""
         mock_logger = Mock()

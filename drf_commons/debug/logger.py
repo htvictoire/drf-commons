@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 
 from .core.categories import Categories
 
+
 class StructuredLogger:
     """Category-aware logger for application events with formatting."""
 

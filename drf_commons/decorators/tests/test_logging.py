@@ -22,7 +22,7 @@ class ApiRequestLoggerTests(DrfCommonTestCase):
         super().setUp()
         self.factory = RequestFactory()
 
-    @patch("decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.Categories")
     def test_basic_api_logging(self, mock_categories):
         """Test basic API request logging without body or headers."""
         mock_logger = Mock()
@@ -47,7 +47,7 @@ class ApiRequestLoggerTests(DrfCommonTestCase):
 
         self.assertEqual(response.content, b"OK")
 
-    @patch("decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.Categories")
     def test_api_logging_with_headers(self, mock_categories):
         """Test API logging with headers enabled."""
         mock_logger = Mock()
@@ -68,7 +68,7 @@ class ApiRequestLoggerTests(DrfCommonTestCase):
         )
         self.assertTrue(headers_call_made)
 
-    @patch("decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.Categories")
     def test_api_logging_with_body(self, mock_categories):
         """Test API logging with request body enabled."""
         mock_logger = Mock()
@@ -89,7 +89,7 @@ class ApiRequestLoggerTests(DrfCommonTestCase):
         )
         self.assertTrue(body_call_made)
 
-    @patch("decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.Categories")
     def test_api_logging_binary_body(self, mock_categories):
         """Test API logging with binary request body."""
         mock_logger = Mock()
@@ -206,8 +206,8 @@ class ApiRequestLoggerTests(DrfCommonTestCase):
 class LogFunctionCallTests(DrfCommonTestCase):
     """Tests for log_function_call decorator."""
 
-    @patch("decorators.logging.Categories")
-    @patch("decorators.logging.time")
+    @patch("drf_commons.decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.time")
     def test_function_call_logging_basic(self, mock_time, mock_categories):
         """Test basic function call logging."""
         mock_logger = Mock()
@@ -235,8 +235,8 @@ class LogFunctionCallTests(DrfCommonTestCase):
 
         self.assertEqual(result, "result")
 
-    @patch("decorators.logging.Categories")
-    @patch("decorators.logging.time")
+    @patch("drf_commons.decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.time")
     def test_function_call_logging_no_args_result(self, mock_time, mock_categories):
         """Test function call logging without args and result."""
         mock_logger = Mock()
@@ -253,8 +253,8 @@ class LogFunctionCallTests(DrfCommonTestCase):
         mock_logger.debug.assert_any_call("Calling test_function")
         mock_logger.debug.assert_any_call("test_function completed in 0.2000s")
 
-    @patch("decorators.logging.Categories")
-    @patch("decorators.logging.time")
+    @patch("drf_commons.decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.time")
     def test_function_call_logging_exception(self, mock_time, mock_categories):
         """Test function call logging with exception."""
         mock_logger = Mock()
@@ -273,7 +273,7 @@ class LogFunctionCallTests(DrfCommonTestCase):
             "test_function failed after 0.3000s with error: Test error"
         )
 
-    @patch("decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.Categories")
     def test_custom_logger_name(self, mock_categories):
         """Test function call logging with custom logger name."""
         mock_logger = Mock()
@@ -294,7 +294,7 @@ class LogFunctionCallTests(DrfCommonTestCase):
 class LogExceptionsTests(DrfCommonTestCase):
     """Tests for log_exceptions decorator."""
 
-    @patch("decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.Categories")
     def test_exception_logging_with_reraise(self, mock_categories):
         """Test exception logging with reraise enabled."""
         mock_logger = Mock()
@@ -316,7 +316,7 @@ class LogExceptionsTests(DrfCommonTestCase):
         self.assertEqual(call_args[1]["extra"]["function"], "test_function")
         self.assertEqual(call_args[1]["extra"]["exception_type"], "ValueError")
 
-    @patch("decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.Categories")
     def test_exception_logging_no_reraise(self, mock_categories):
         """Test exception logging without reraise."""
         mock_logger = Mock()
@@ -332,7 +332,7 @@ class LogExceptionsTests(DrfCommonTestCase):
         self.assertIsNone(result)
         mock_logger.error.assert_called_once()
 
-    @patch("decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.Categories")
     def test_exception_logging_success(self, mock_categories):
         """Test that successful function calls don't trigger exception logging."""
         mock_logger = Mock()
@@ -347,7 +347,7 @@ class LogExceptionsTests(DrfCommonTestCase):
         self.assertEqual(result, "success")
         mock_logger.error.assert_not_called()
 
-    @patch("decorators.logging.Categories")
+    @patch("drf_commons.decorators.logging.Categories")
     def test_custom_exception_logger_name(self, mock_categories):
         """Test exception logging with custom logger name."""
         mock_logger = Mock()

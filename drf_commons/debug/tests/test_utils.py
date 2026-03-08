@@ -5,7 +5,6 @@ Tests for debug utility functions.
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
-from django.db import connection
 from django.test import RequestFactory
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
@@ -328,7 +327,6 @@ class TestMemoryUsage(DrfCommonTestCase):
             memory_usage()
 
         self.assertIn("drf-commons[debug]", str(cm.exception))
-
 
 
 class TestAnalyzeQueryset(DrfCommonTestCase):

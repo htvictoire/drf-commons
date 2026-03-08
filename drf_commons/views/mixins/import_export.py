@@ -192,7 +192,7 @@ class FileImportMixin:
                                     "replace_data requires zero failed rows; no changes were committed."
                                 ]
                             },
-                            data=response_data,
+                            **response_data,
                             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         )
             else:
@@ -255,7 +255,7 @@ class FileImportMixin:
                 return error_response(
                     message="Import validation failed - missing or incorrect columns",
                     errors={"validation": [error_message]},
-                    data={"template_download_url": template_url},
+                    template_download_url=template_url,
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 )
             else:

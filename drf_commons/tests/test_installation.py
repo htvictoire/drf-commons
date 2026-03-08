@@ -86,7 +86,9 @@ class LibraryInstallationTests(TestCase):
         # Test import without openpyxl
         with patch.dict(sys.modules, {'openpyxl': None}):
             try:
-                from drf_commons.services.export_file.exporters import xlsx_exporter
+                importlib.import_module(
+                    "drf_commons.services.export_file.exporters.xlsx_exporter"
+                )
                 # Should not fail during import, only during usage
             except ImportError:
                 self.fail("xlsx_exporter should import even without openpyxl")
@@ -94,7 +96,9 @@ class LibraryInstallationTests(TestCase):
         # Test import without reportlab
         with patch.dict(sys.modules, {'reportlab': None}):
             try:
-                from drf_commons.services.export_file.exporters import pdf_exporter
+                importlib.import_module(
+                    "drf_commons.services.export_file.exporters.pdf_exporter"
+                )
                 # Should not fail during import, only during usage
             except ImportError:
                 self.fail("pdf_exporter should import even without reportlab")
@@ -115,7 +119,9 @@ class LibraryInstallationTests(TestCase):
             self.fail("Could not import drf_commons settings")
 
         try:
-            import drf_commons.common_conf.django_settings
+            importlib.import_module(
+                "drf_commons.common_conf.django_settings"
+            )
             # Should import without error
         except ImportError:
             self.fail("Could not import django_settings")

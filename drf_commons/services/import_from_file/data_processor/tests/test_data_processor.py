@@ -37,9 +37,9 @@ class DataProcessorTests(DrfCommonTestCase):
         self.assertEqual(processor.config, self.config)
         self.assertEqual(processor.transforms, self.transforms)
 
-    @patch("services.import_from_file.data_processor.data_processor.LookupManager")
-    @patch("services.import_from_file.data_processor.data_processor.FieldProcessor")
-    @patch("services.import_from_file.data_processor.data_processor.ObjectManager")
+    @patch("drf_commons.services.import_from_file.data_processor.data_processor.LookupManager")
+    @patch("drf_commons.services.import_from_file.data_processor.data_processor.FieldProcessor")
+    @patch("drf_commons.services.import_from_file.data_processor.data_processor.ObjectManager")
     def test_processor_initializes_managers(
         self, mock_object_manager, mock_field_processor, mock_lookup_manager
     ):

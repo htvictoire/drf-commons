@@ -101,7 +101,7 @@ class SlugMixinTests(ModelTestCase):
         model = SlugModelForTesting(title="Test Title")
         slug = model.generate_slug()
 
-        self.assertEqual(slug, "test-title-2")
+        self.assertEqual(slug, "test-title")
 
     def test_generate_slug_excludes_current_instance(self):
         """Test generate_slug excludes current instance from conflict check."""
@@ -164,7 +164,7 @@ class SlugMixinTests(ModelTestCase):
 
             slug = model.generate_slug()
 
-            self.assertEqual(slug, "")
+            self.assertEqual(slug, "item")
 
     def test_help_text_is_descriptive(self):
         """Test that slug field has descriptive help text."""

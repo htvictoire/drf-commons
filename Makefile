@@ -1,6 +1,6 @@
-.PHONY: help install install-dev install-test install-testing clean lint format sort-imports type-check quality test test-verbose coverage build publish publish-test clean-build clean-pyc clean-test docs docs-clean all check
+.PHONY: help install install-dev install-test install-testing clean lint format sort-imports type-check quality test test-verbose coverage clean-build clean-pyc clean-test docs docs-clean all check
 
-PYTHON ?= python
+PYTHON ?= .venv/bin/python
 
 # Default target
 help:
@@ -26,18 +26,13 @@ help:
 	@echo "  docs          Build Sphinx documentation (docs/_build/html)"
 	@echo "  docs-clean    Remove Sphinx build output"
 	@echo ""
-	@echo "Build & Release:"
-	@echo "  build         Build distribution packages"
-	@echo "  publish       Clean, build, confirm, and publish to PyPI"
-	@echo "  publish-test  Clean, build, and publish to TestPyPI"
-	@echo ""
 	@echo "Maintenance:"
 	@echo "  clean-build   Clean build artifacts"
 	@echo "  clean-pyc     Clean Python file artifacts"
 	@echo "  clean-test    Clean test artifacts"
 	@echo ""
 	@echo "Combined:"
-	@echo "  all           Install, run quality checks, test, and build"
+	@echo "  all           Install, run quality checks, and test"
 	@echo "  check         Run quality checks and tests (CI-friendly)"
 
 # Setup & Installation
@@ -45,7 +40,7 @@ install:
 	$(PYTHON) -m pip install -e .
 
 install-dev:
-	$(PYTHON) -m pip install -e .[dev,test,build]
+	$(PYTHON) -m pip install -e .[dev,test,build,import,export,debug]
 	@echo "Development environment ready!"
 
 install-test install-testing:
@@ -55,22 +50,22 @@ install-test install-testing:
 # Code Quality
 format:
 	@echo "Formatting code with black..."
-	black . --exclude="venv|.venv|env|.env"
+	$(PYTHON) -m black . --exclude="venv|.venv|env|.env"
 	@echo "✓ Code formatted"
 
 sort-imports:
 	@echo "Sorting imports with isort..."
-	isort . --skip-glob="venv/*" --skip-glob=".venv/*" --skip-glob="env/*" --skip-glob=".env/*"
+	$(PYTHON) -m isort . --skip-glob="venv/*" --skip-glob=".venv/*" --skip-glob="env/*" --skip-glob=".env/*"
 	@echo "✓ Imports sorted"
 
 lint:
 	@echo "Running flake8 linting..."
-	flake8 . --exclude=venv,.venv,env,.env
+	$(PYTHON) -m flake8 . --exclude=venv,.venv,env,.env
 	@echo "✓ Linting passed"
 
 type-check:
 	@echo "Running mypy type checking..."
-	mypy . --exclude="venv|.venv|env|.env"
+	$(PYTHON) -m mypy . --exclude="venv|.venv|env|.env"
 	@echo "✓ Type checking passed"
 
 quality: format sort-imports lint type-check
@@ -125,30 +120,6 @@ docs-clean:
 	make -C docs clean
 	@echo "✓ Documentation artifacts cleaned"
 
-# Build & Release
-build: clean-build
-	@echo "Building distribution packages..."
-	$(PYTHON) -m build
-	@echo "✓ Build completed"
-
-# Publishing
-publish: clean-build
-	@read -p "Publish to PyPI? Type 'Yes' to confirm: " CONFIRM; \
-	if [ "$$CONFIRM" != "Yes" ]; then echo "Publish aborted."; exit 1; fi
-	@echo "Building distribution packages..."
-	$(PYTHON) -m build
-	@echo "Uploading to PyPI..."
-	twine upload dist/*
-	@echo "✓ Published to PyPI"
-
-publish-test: clean-build
-	@echo "Cleaning build artifacts..."
-	@echo "Building distribution packages..."
-	$(PYTHON) -m build
-	@echo "Uploading to TestPyPI..."
-	twine upload --repository testpypi dist/*
-	@echo "✓ Published to TestPyPI"
-
 # Cleaning
 clean-build:
 	rm -fr build/
@@ -173,7 +144,7 @@ clean: clean-build clean-pyc clean-test
 	@echo "✓ All artifacts cleaned"
 
 # Combined targets
-all: install-dev quality test build
+all: install-dev quality test
 	@echo "✓ Complete pipeline finished successfully!"
 
 check: quality test
