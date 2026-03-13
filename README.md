@@ -1,5 +1,7 @@
 # drf-commons
 
+[![Tests](https://github.com/htvictoire/drf-commons/actions/workflows/tests.yml/badge.svg)](https://github.com/htvictoire/drf-commons/actions/workflows/tests.yml)
+[![Coverage](https://codecov.io/gh/htvictoire/drf-commons/branch/main/graph/badge.svg)](https://codecov.io/gh/htvictoire/drf-commons)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![Django](https://img.shields.io/badge/django-3.2%2B-green.svg)](https://www.djangoproject.com/)
 [![DRF](https://img.shields.io/badge/djangorestframework-3.12%2B-red.svg)](https://www.django-rest-framework.org/)
