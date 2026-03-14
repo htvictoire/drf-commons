@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..cache import cache_debug
+from drf_commons.decorators.cache import cache_debug
 
 
 class CacheDebugTests(DrfCommonTestCase):

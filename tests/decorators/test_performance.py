@@ -9,7 +9,7 @@ from django.test import RequestFactory
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..performance import api_performance_monitor
+from drf_commons.decorators.performance import api_performance_monitor
 
 
 class ApiPerformanceMonitorTests(DrfCommonTestCase):

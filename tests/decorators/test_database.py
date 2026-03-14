@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..database import log_db_query
+from drf_commons.decorators.database import log_db_query
 
 
 class LogDbQueryTests(DrfCommonTestCase):

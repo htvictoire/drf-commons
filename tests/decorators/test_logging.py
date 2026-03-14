@@ -11,7 +11,7 @@ from django.test import RequestFactory
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 from drf_commons.debug.core.categories import Categories
 
-from ..logging import api_request_logger, log_exceptions, log_function_call
+from drf_commons.decorators.logging import api_request_logger, log_exceptions, log_function_call
 
 
 class ApiRequestLoggerTests(DrfCommonTestCase):
