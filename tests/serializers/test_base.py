@@ -13,7 +13,7 @@ from drf_commons.common_tests.base_cases import SerializerTestCase
 from drf_commons.common_tests.factories import UserFactory
 from drf_commons.common_tests.serializers import UserSerializerForTesting
 
-from ..base import (
+from drf_commons.serializers.fields.base import (
     ConfigurableManyToManyField,
     ConfigurableRelatedField,
     ReadOnlyRelatedField,
