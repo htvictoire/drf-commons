@@ -12,7 +12,7 @@ from django.utils import timezone
 from drf_commons.common_tests.base_cases import ModelTestCase
 from drf_commons.common_tests.factories import UserFactory
 
-from ..mixins import SoftDeleteMixin, TimeStampMixin, UserActionMixin
+from drf_commons.models.mixins import SoftDeleteMixin, TimeStampMixin, UserActionMixin
 
 User = get_user_model()
 

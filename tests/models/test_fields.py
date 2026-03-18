@@ -14,7 +14,7 @@ from drf_commons.common_tests.base_cases import ModelTestCase
 from drf_commons.common_tests.factories import UserFactory
 from drf_commons.current_user.utils import get_current_authenticated_user
 
-from ..fields import CurrentUserField
+from drf_commons.models.fields import CurrentUserField
 
 User = get_user_model()
 

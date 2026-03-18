@@ -9,7 +9,7 @@ from django.utils.text import slugify
 
 from drf_commons.common_tests.base_cases import ModelTestCase
 
-from ..content import MetaMixin, SlugMixin, VersionConflictError, VersionMixin
+from drf_commons.models.content import MetaMixin, SlugMixin, VersionConflictError, VersionMixin
 
 
 class SlugModelForTesting(SlugMixin):

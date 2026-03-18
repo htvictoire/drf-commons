@@ -11,7 +11,7 @@ from django.db import models
 
 from drf_commons.common_tests.base_cases import ModelTestCase
 
-from ..person import AddressMixin, IdentityMixin
+from drf_commons.models.person import AddressMixin, IdentityMixin
 
 User = get_user_model()
 
