@@ -11,7 +11,7 @@ from rest_framework import viewsets
 from drf_commons.common_tests.base_cases import ViewTestCase
 from drf_commons.common_tests.factories import UserFactory
 
-from ..base import (
+from drf_commons.views.base import (
     BaseViewSet,
     BulkCreateViewSet,
     BulkDeleteViewSet,

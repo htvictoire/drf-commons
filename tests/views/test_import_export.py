@@ -11,7 +11,7 @@ from django.contrib.auth import get_user_model
 from drf_commons.common_tests.base_cases import ViewTestCase
 from drf_commons.common_tests.factories import UserFactory
 
-from ..import_export import (
+from drf_commons.views.mixins.import_export import (
     FileExportMixin,
     FileImportMixin,
 )

@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from drf_commons.common_tests.base_cases import ViewTestCase
 from drf_commons.common_tests.factories import UserFactory
 
-from ..bulk import (
+from drf_commons.views.mixins.bulk import (
     BulkCreateModelMixin,
     BulkDeleteModelMixin,
     BulkOperationMixin,

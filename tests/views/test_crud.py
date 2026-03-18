@@ -13,7 +13,7 @@ from django.core.exceptions import ImproperlyConfigured
 from drf_commons.common_tests.base_cases import ViewTestCase
 from drf_commons.common_tests.factories import UserFactory
 
-from ..crud import (
+from drf_commons.views.mixins.crud import (
     CreateModelMixin,
     DestroyModelMixin,
     ListModelMixin,
