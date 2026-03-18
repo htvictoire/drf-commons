@@ -11,7 +11,7 @@ from openpyxl import load_workbook
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..xlsx_exporter import XLSXExporter
+from drf_commons.services.export_file.exporters.xlsx_exporter import XLSXExporter
 
 
 class XLSXExporterTests(DrfCommonTestCase):

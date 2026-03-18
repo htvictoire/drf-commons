@@ -6,7 +6,7 @@ Tests data processing functionality used in export operations.
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..data_processor import process_export_data
+from drf_commons.services.export_file.data_processor import process_export_data
 
 
 class DataProcessorTests(DrfCommonTestCase):

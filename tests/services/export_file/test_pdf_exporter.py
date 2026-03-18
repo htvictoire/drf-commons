@@ -1,22 +1,22 @@
 """
-Tests for CSV export functionality.
+Tests for PDF export functionality.
 
-Tests CSV exporter functionality for exporting data to CSV format.
+Tests PDF exporter functionality for exporting data to PDF format.
 """
 
 from django.http import HttpResponse
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..csv_exporter import CSVExporter
+from drf_commons.services.export_file.exporters.pdf_exporter import PDFExporter
 
 
-class CSVExporterTests(DrfCommonTestCase):
-    """Tests for CSVExporter."""
+class PDFExporterTests(DrfCommonTestCase):
+    """Tests for PDFExporter."""
 
     def setUp(self):
         super().setUp()
-        self.exporter = CSVExporter()
+        self.exporter = PDFExporter()
         self.sample_data = [
             {"id": 1, "name": "John Doe", "email": "john@example.com"},
             {"id": 2, "name": "Jane Smith", "email": "jane@example.com"},
@@ -27,7 +27,7 @@ class CSVExporterTests(DrfCommonTestCase):
             "name": {"label": "Name"},
             "email": {"label": "Email"},
         }
-        self.filename = "test_export.csv"
+        self.filename = "test_export.pdf"
         self.export_headers = ["Test Export Report"]
         self.document_titles = ["User Data Export"]
 
@@ -43,7 +43,7 @@ class CSVExporterTests(DrfCommonTestCase):
         )
 
         self.assertIsInstance(response, HttpResponse)
-        self.assertEqual(response["Content-Type"], "text/csv")
+        self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertIn("attachment", response["Content-Disposition"])
         self.assertIn(self.filename, response["Content-Disposition"])
 
@@ -59,7 +59,7 @@ class CSVExporterTests(DrfCommonTestCase):
         )
 
         self.assertIsInstance(response, HttpResponse)
-        self.assertEqual(response["Content-Type"], "text/csv")
+        self.assertEqual(response["Content-Type"], "application/pdf")
 
     def test_export_content_type(self):
         """Test export sets correct content type."""
@@ -72,7 +72,7 @@ class CSVExporterTests(DrfCommonTestCase):
             self.document_titles,
         )
 
-        self.assertEqual(response["Content-Type"], "text/csv")
+        self.assertEqual(response["Content-Type"], "application/pdf")
 
     def test_export_filename_header(self):
         """Test export sets correct filename in headers."""

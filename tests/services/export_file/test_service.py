@@ -8,7 +8,7 @@ from django.http import HttpResponse
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..service import ExportService
+from drf_commons.services.export_file.service import ExportService
 
 
 class ExportServiceTests(DrfCommonTestCase):
