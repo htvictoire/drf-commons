@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
-from ..utils import error_response, success_response
+from drf_commons.response.utils import error_response, success_response
 
 
 class SuccessResponseTestCase(DrfCommonTestCase):

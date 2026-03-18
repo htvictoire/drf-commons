@@ -8,7 +8,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
-from ..middleware_checker import (
+from drf_commons.utils.middleware_checker import (
     MiddlewareChecker,
     enforce_current_user_middleware_if_used,
     require_middleware,

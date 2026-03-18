@@ -10,7 +10,7 @@ from django.test import RequestFactory
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 from drf_commons.common_tests.factories import UserFactory
 
-from ..debug import DebugMiddleware, ProfilerMiddleware, SQLDebugMiddleware
+from drf_commons.middlewares.debug import DebugMiddleware, ProfilerMiddleware, SQLDebugMiddleware
 
 
 class DebugMiddlewareTests(DrfCommonTestCase):

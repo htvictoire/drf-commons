@@ -5,7 +5,7 @@ Tests for ordering processors.
 from django.db import models
 from django.test import TestCase
 
-from ..processors import (
+from drf_commons.filters.ordering.processors import (
     parse_order_field,
     process_aggregate_lookup,
     process_computed_field,

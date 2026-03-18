@@ -8,7 +8,7 @@ from django.db import models
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..computed import ComputedOrderingFilter
+from drf_commons.filters.ordering.computed import ComputedOrderingFilter
 
 
 class ComputedOrderingFilterTests(DrfCommonTestCase):

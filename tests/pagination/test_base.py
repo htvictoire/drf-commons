@@ -5,7 +5,7 @@ Tests for pagination classes.
 from rest_framework.pagination import LimitOffsetPagination, PageNumberPagination
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
-from ..base import LimitOffsetPaginationWithFormat, StandardPageNumberPagination
+from drf_commons.pagination.base import LimitOffsetPaginationWithFormat, StandardPageNumberPagination
 
 
 class StandardPageNumberPaginationTestCase(DrfCommonTestCase):
