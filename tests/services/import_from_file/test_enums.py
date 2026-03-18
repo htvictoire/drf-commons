@@ -6,7 +6,7 @@ Tests enum definitions used in import configuration.
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..enums import FileFormat
+from drf_commons.services.import_from_file.config.enums import FileFormat
 
 
 class EnumsTests(DrfCommonTestCase):

@@ -10,7 +10,7 @@ import pandas as pd
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..data_processor import DataProcessor
+from drf_commons.services.import_from_file.data_processor.data_processor import DataProcessor
 
 
 class DataProcessorTests(DrfCommonTestCase):

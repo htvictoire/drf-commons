@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 from django.contrib.auth import get_user_model
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..bulk_operations import BulkOperations
+from drf_commons.services.import_from_file.core.bulk_operations import BulkOperations
 
 User = get_user_model()
 

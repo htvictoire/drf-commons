@@ -6,7 +6,7 @@ Tests custom exception classes used in import operations.
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..exceptions import ImportErrorRow, ImportValidationError
+from drf_commons.services.import_from_file.core.exceptions import ImportErrorRow, ImportValidationError
 
 
 class ExceptionsTests(DrfCommonTestCase):

@@ -13,7 +13,7 @@ import pandas as pd
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 from drf_commons.common_tests.utils import create_csv_file
 
-from ..file_reader import FileReader
+from drf_commons.services.import_from_file.core.file_reader import FileReader
 
 
 class FileReaderTests(DrfCommonTestCase):

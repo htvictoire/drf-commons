@@ -13,8 +13,8 @@ from drf_commons.common_tests.base_cases import DrfCommonTestCase
 from drf_commons.common_tests.factories import UserFactory
 from drf_commons.common_conf import settings
 
-from ..core.exceptions import ImportErrorRow
-from ..service import FileImportService
+from drf_commons.services.import_from_file.core.exceptions import ImportErrorRow
+from drf_commons.services.import_from_file.service import FileImportService
 
 User = get_user_model()
 

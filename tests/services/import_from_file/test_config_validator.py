@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ...core.exceptions import ImportValidationError
-from ..config_validator import ConfigValidator
+from drf_commons.services.import_from_file.core.exceptions import ImportValidationError
+from drf_commons.services.import_from_file.config.config_validator import ConfigValidator
 
 
 class ConfigValidatorTests(DrfCommonTestCase):

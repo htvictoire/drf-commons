@@ -10,8 +10,8 @@ import pandas as pd
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 from drf_commons.common_tests.factories import UserFactory
 
-from ...core.exceptions import ImportValidationError
-from ..lookup_manager import LookupManager
+from drf_commons.services.import_from_file.core.exceptions import ImportValidationError
+from drf_commons.services.import_from_file.data_processor.lookup_manager import LookupManager
 
 
 class LookupManagerTests(DrfCommonTestCase):

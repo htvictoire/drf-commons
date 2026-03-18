@@ -6,7 +6,7 @@ Tests configuration helper functionality.
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..config_helpers import ConfigHelpers
+from drf_commons.services.import_from_file.config.config_helpers import ConfigHelpers
 
 
 class ConfigHelpersTests(DrfCommonTestCase):

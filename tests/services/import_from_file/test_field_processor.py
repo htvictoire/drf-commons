@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..field_processor import FieldProcessor
+from drf_commons.services.import_from_file.data_processor.field_processor import FieldProcessor
 
 
 class FieldProcessorTests(DrfCommonTestCase):

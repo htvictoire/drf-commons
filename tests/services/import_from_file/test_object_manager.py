@@ -7,7 +7,7 @@ Tests object management functionality.
 
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 
-from ..object_manager import ObjectManager
+from drf_commons.services.import_from_file.data_processor.object_manager import ObjectManager
 
 
 class ObjectManagerTests(DrfCommonTestCase):
