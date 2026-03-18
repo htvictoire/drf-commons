@@ -142,5 +142,16 @@ disallow_untyped_defs = false
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "drf_commons.common_conf.django_settings"
 python_files = ["test_*.py", "*_test.py"]
-testpaths = ["drf_commons"]
+testpaths = ["tests", "drf_commons"]
+
+[tool.coverage.run]
+source = ["drf_commons"]
+omit = ["*/tests/*", "*/test_*.py", "*_test.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
 addopts = "--strict-markers --tb=short"
