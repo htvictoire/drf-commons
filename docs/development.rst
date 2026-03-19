@@ -196,22 +196,19 @@ Pull Request Guidelines
 Publishing to PyPI
 ------------------
 
+Releases are fully automated via GitHub Actions. Do **not** upload manually
+with twine. See ``PUBLISHING.md`` at the project root for the full guide.
+
+Short version:
+
 .. code-block:: bash
 
-   # Install build tools
-   pip install build twine
+   # Update CHANGELOG.md, then commit, then tag
+   git tag v1.0.3
+   git push origin v1.0.3
 
-   # Bump version in drf_commons/__init__.py
-   # Update CHANGELOG
+CI will build and publish to PyPI automatically once the environment gate
+is approved. The tag is the source of truth for the version — verify it
+is correct before pushing.
 
-   # Build distribution
-   python -m build
-
-   # Upload to TestPyPI first
-   twine upload --repository testpypi dist/*
-
-   # Verify installation from TestPyPI
-   pip install --index-url https://test.pypi.org/simple/ drf-commons
-
-   # Upload to PyPI
-   twine upload dist/*
+Run ``make release`` for the full pre-release checklist.
