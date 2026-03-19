@@ -8,7 +8,7 @@ dynamic = ["version"]
 authors = [
     {name = "Victoire HABAMUNGU", email = "contact@htvictoire.me"}
 ]
-description = "Production-grade utilities, base classes, and architectural abstractions for Django REST Framework"
+description = "Utilities, base classes, and architectural abstractions for Django REST Framework"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
