@@ -77,3 +77,67 @@ class LookupManagerTests(DrfCommonTestCase):
 
         self.assertIn("auth.User__username", caches)
         self.assertEqual(caches["auth.User__username"]["lookup_user"].pk, user.pk)
+
+    def test_collect_lookup_values_with_lookup_fields_in_config(self):
+        config = {
+            "order": ["main"],
+            "models": {
+                "main": {
+                    "model": "auth.User",
+                    "lookup_fields": {
+                        "group": {
+                            "column": "group_name",
+                            "model": "auth.Group",
+                            "lookup_field": "name",
+                        }
+                    },
+                }
+            },
+        }
+        df = pd.DataFrame({"group_name": ["admins", "editors", "admins"]})
+        manager = LookupManager(config)
+        result = manager.collect_lookup_values(df)
+        self.assertIn("auth.Group__name", result)
+        self.assertEqual(result["auth.Group__name"], {"admins", "editors"})
+
+    def test_collect_lookup_values_raises_for_unqualified_model_path(self):
+        config = {
+            "order": ["main"],
+            "models": {
+                "main": {
+                    "model": "auth.User",
+                    "lookup_fields": {
+                        "group": {
+                            "column": "group_name",
+                            "model": "Group",
+                            "lookup_field": "name",
+                        }
+                    },
+                }
+            },
+        }
+        df = pd.DataFrame({"group_name": ["admins"]})
+        manager = LookupManager(config)
+        with self.assertRaises(ValueError):
+            manager.collect_lookup_values(df)
+
+    def test_resolve_lookup_returns_cached_object(self):
+        user = UserFactory(username="cached_user")
+        manager = LookupManager(self.config)
+        lookup_spec = {"model": "auth.User", "lookup_field": "username"}
+        caches = {"auth.User__username": {"cached_user": user}}
+        result = manager.resolve_lookup(lookup_spec, "cached_user", caches)
+        self.assertEqual(result, user)
+
+    def test_resolve_lookup_returns_none_for_missing_value(self):
+        manager = LookupManager(self.config)
+        lookup_spec = {"model": "auth.User", "lookup_field": "username"}
+        caches = {"auth.User__username": {}}
+        result = manager.resolve_lookup(lookup_spec, "ghost", caches)
+        self.assertIsNone(result)
+
+    def test_resolve_lookup_raises_for_unqualified_model_path(self):
+        manager = LookupManager(self.config)
+        lookup_spec = {"model": "User", "lookup_field": "username"}
+        with self.assertRaises(ValueError):
+            manager.resolve_lookup(lookup_spec, "anyone", {})

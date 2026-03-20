@@ -10,6 +10,8 @@ from django.contrib.auth.models import Group
 
 from rest_framework import serializers
 
+from unittest.mock import MagicMock, patch
+
 from drf_commons.common_tests.base_cases import SerializerTestCase
 from drf_commons.common_tests.factories import UserFactory
 from drf_commons.common_tests.serializers import (
@@ -17,6 +19,8 @@ from drf_commons.common_tests.serializers import (
     create_mock_field,
     create_serialized_mock_field,
 )
+from drf_commons.serializers.fields.mixins.deferred import DeferredRelatedOperation
+from drf_commons.serializers.fields.mixins.relations import RelatedFieldRelationWriteMixin
 
 User = get_user_model()
 
@@ -267,3 +271,88 @@ class ConfigurableRelatedFieldMixinTests(SerializerTestCase):
         )
         with self.assertRaises(serializers.ValidationError):
             field._handle_slug_input("any")
+
+
+class RelatedFieldRelationWriteMixinTests(SerializerTestCase):
+    """Tests for RelatedFieldRelationWriteMixin."""
+
+    def _mixin(self, relation_kind="fk", sync_mode="append", child_link_field=None):
+        mixin = RelatedFieldRelationWriteMixin()
+        mixin._resolved_relation_write = {
+            "relation_kind": relation_kind,
+            "sync_mode": sync_mode,
+            "child_link_field": child_link_field,
+            "write_order": "root_first",
+        }
+        mixin._get_source_attr = MagicMock(return_value="items")
+        mixin._bound_model_field = MagicMock()
+        mixin._bound_model_field.field.null = True
+        mixin.field_name = "items"
+        return mixin
+
+    def test_contains_deferred_related_true_for_deferred_operation(self):
+        mixin = RelatedFieldRelationWriteMixin()
+        op = DeferredRelatedOperation(field=MagicMock(), serializer=MagicMock())
+        self.assertTrue(mixin.contains_deferred_related(op))
+
+    def test_contains_deferred_related_true_for_list_with_deferred(self):
+        mixin = RelatedFieldRelationWriteMixin()
+        op = DeferredRelatedOperation(field=MagicMock(), serializer=MagicMock())
+        self.assertTrue(mixin.contains_deferred_related([op]))
+
+    def test_contains_deferred_related_false_for_plain_value(self):
+        mixin = RelatedFieldRelationWriteMixin()
+        self.assertFalse(mixin.contains_deferred_related("plain_value"))
+
+    def test_resolve_related_value_resolves_list(self):
+        mixin = RelatedFieldRelationWriteMixin()
+        op = DeferredRelatedOperation(field=MagicMock(), serializer=MagicMock())
+        op_resolved = MagicMock()
+        with patch.object(op, "resolve", return_value=op_resolved):
+            result = mixin.resolve_related_value([op])
+        self.assertEqual(result, [op_resolved])
+
+    def test_apply_root_first_relation_fk_sets_attribute_and_saves(self):
+        mixin = self._mixin(relation_kind="fk")
+        parent = MagicMock()
+        parent.pk = 1
+        resolved = MagicMock()
+        mixin.apply_root_first_relation(parent, resolved)
+        parent.save.assert_called_once()
+
+    def test_apply_root_first_relation_reverse_fk_missing_child_link_raises(self):
+        mixin = self._mixin(relation_kind="reverse_fk", child_link_field=None)
+        with self.assertRaises(serializers.ValidationError):
+            mixin.apply_root_first_relation(MagicMock(), MagicMock())
+
+    def test_apply_root_first_relation_reverse_fk_links_and_saves_children(self):
+        mixin = self._mixin(relation_kind="reverse_fk", child_link_field="parent")
+        parent = MagicMock()
+        parent.pk = 99
+        child = MagicMock()
+        child.parent_id = None
+        mixin.apply_root_first_relation(parent, [child])
+        child.save.assert_called_once()
+
+    def test_apply_root_first_relation_m2m_replace_calls_set(self):
+        mixin = self._mixin(relation_kind="m2m", sync_mode="replace")
+        manager = MagicMock()
+        parent = MagicMock(**{"items": manager})
+        resolved = [MagicMock(), MagicMock()]
+        mixin.apply_root_first_relation(parent, resolved)
+        manager.set.assert_called_once_with(resolved)
+
+    def test_apply_root_first_relation_m2m_append_calls_add(self):
+        mixin = self._mixin(relation_kind="m2m", sync_mode="append")
+        parent = MagicMock()
+        manager = MagicMock()
+        setattr(parent, "items", manager)
+        resolved = [MagicMock()]
+        mixin.apply_root_first_relation(parent, resolved)
+        manager.add.assert_called_once()
+
+    def test_save_deferred_serializer_raises_when_reverse_fk_missing_child_link(self):
+        mixin = self._mixin(relation_kind="reverse_fk", child_link_field=None)
+        nested_serializer = MagicMock()
+        with self.assertRaises(serializers.ValidationError):
+            mixin._save_deferred_serializer(nested_serializer, parent_instance=MagicMock())
