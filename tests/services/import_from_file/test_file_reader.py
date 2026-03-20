@@ -114,3 +114,85 @@ class FileReaderTests(DrfCommonTestCase):
         self.reader.read_file("test.csv")
 
         mock_read_csv.assert_called_once()
+
+    @patch("drf_commons.services.import_from_file.core.file_reader.pd.read_excel")
+    def test_read_xls_file_uses_xlrd_engine(self, mock_read_excel):
+        """Test reading XLS file uses xlrd engine."""
+        mock_read_excel.return_value = pd.DataFrame({"col": ["val"]})
+        xls_config = {"file_format": "xls"}
+        xls_reader = FileReader(xls_config)
+
+        xls_reader.read_file("test.xls")
+
+        mock_read_excel.assert_called_once()
+        call_kwargs = mock_read_excel.call_args
+        self.assertEqual(call_kwargs[1]["engine"], "xlrd")
+
+    @patch("drf_commons.services.import_from_file.core.file_reader.pd.read_excel")
+    def test_read_xlsx_file_uses_openpyxl_engine(self, mock_read_excel):
+        """Test reading XLSX file uses openpyxl engine."""
+        mock_read_excel.return_value = pd.DataFrame({"col": ["val"]})
+        xlsx_config = {"file_format": "xlsx"}
+        xlsx_reader = FileReader(xlsx_config)
+
+        xlsx_reader.read_file("test.xlsx")
+
+        mock_read_excel.assert_called_once()
+        call_kwargs = mock_read_excel.call_args
+        self.assertEqual(call_kwargs[1]["engine"], "openpyxl")
+
+    @patch("drf_commons.services.import_from_file.core.file_reader.pd.read_excel")
+    def test_read_file_strips_whitespace_from_headers(self, mock_read_excel):
+        """Test that whitespace is stripped from column headers after reading."""
+        mock_read_excel.return_value = pd.DataFrame({" username ": ["val"], " email": ["e@e.com"]})
+        xlsx_config = {"file_format": "xlsx"}
+        xlsx_reader = FileReader(xlsx_config)
+
+        df = xlsx_reader.read_file("test.xlsx")
+
+        self.assertIn("username", df.columns)
+        self.assertIn("email", df.columns)
+
+    def test_validate_headers_raises_on_missing_columns(self):
+        """Test validate_headers raises ImportValidationError when columns are missing."""
+        from drf_commons.services.import_from_file.core.exceptions import ImportValidationError
+
+        required = {"username", "email", "first_name"}
+        file_cols = ["username", "email"]
+
+        with self.assertRaises(ImportValidationError) as cm:
+            self.reader.validate_headers(file_cols, required)
+
+        self.assertIn("Missing columns", str(cm.exception))
+        self.assertIn("first_name", str(cm.exception))
+
+    def test_validate_headers_raises_on_extra_columns(self):
+        """Test validate_headers raises ImportValidationError when extra columns exist."""
+        from drf_commons.services.import_from_file.core.exceptions import ImportValidationError
+
+        required = {"username"}
+        file_cols = ["username", "unexpected_col"]
+
+        with self.assertRaises(ImportValidationError) as cm:
+            self.reader.validate_headers(file_cols, required)
+
+        self.assertIn("Unexpected columns", str(cm.exception))
+        self.assertIn("unexpected_col", str(cm.exception))
+
+    def test_validate_headers_passes_on_exact_match(self):
+        """Test validate_headers passes when columns match exactly."""
+        required = {"username", "email"}
+        file_cols = ["username", "email"]
+
+        # Should not raise
+        self.reader.validate_headers(file_cols, required)
+
+    def test_validate_headers_raises_on_both_missing_and_extra(self):
+        """Test validate_headers raises on missing columns (checked before extra)."""
+        from drf_commons.services.import_from_file.core.exceptions import ImportValidationError
+
+        required = {"username", "email"}
+        file_cols = ["username", "phone"]  # 'email' missing, 'phone' extra
+
+        with self.assertRaises(ImportValidationError):
+            self.reader.validate_headers(file_cols, required)
