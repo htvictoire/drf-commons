@@ -1,5 +1,7 @@
 # drf-commons
 
+[![Tests](https://github.com/htvictoire/drf-commons/actions/workflows/tests.yml/badge.svg)](https://github.com/htvictoire/drf-commons/actions/workflows/tests.yml)
+[![Coverage](https://codecov.io/gh/htvictoire/drf-commons/branch/main/graph/badge.svg)](https://codecov.io/gh/htvictoire/drf-commons)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![Django](https://img.shields.io/badge/django-3.2%2B-green.svg)](https://www.djangoproject.com/)
 [![DRF](https://img.shields.io/badge/djangorestframework-3.12%2B-red.svg)](https://www.django-rest-framework.org/)
@@ -8,7 +10,7 @@
 [![PyPI downloads](https://img.shields.io/pypi/dm/drf-commons.svg)](https://pypi.org/project/drf-commons/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-**drf-commons** is a production-grade utility library for Django REST Framework that eliminates architectural repetition, enforces API consistency, and provides composable abstractions for building scalable, maintainable REST APIs at any scale.
+**drf-commons** is a utility library for Django REST Framework that eliminates architectural repetition, enforces API consistency, and provides composable abstractions for building scalable, maintainable REST APIs.
 
 ---
 

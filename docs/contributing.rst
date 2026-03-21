@@ -2,7 +2,8 @@ Contributing
 ============
 
 Contributions to drf-commons are welcome. Please read this guide before
-submitting issues or pull requests.
+submitting issues or pull requests. A shorter version is available in
+``CONTRIBUTING.md`` at the project root.
 
 Reporting Issues
 ----------------
@@ -29,7 +30,78 @@ Feature requests are evaluated based on:
 Development Process
 -------------------
 
-See :doc:`development` for the full development workflow.
+See :doc:`development` for the full development workflow including environment
+setup, Makefile commands, code style, and test configuration.
+
+Commit Conventions
+------------------
+
+This project uses `Conventional Commits <https://www.conventionalcommits.org/>`_.
+
+.. code-block:: text
+
+   <type>(<optional scope>): <short description in imperative mood>
+
+   <optional body explaining why, not what>
+
+Allowed types:
+
+.. list-table::
+   :widths: 20 80
+   :header-rows: 1
+
+   * - Type
+     - When to use
+   * - ``feat``
+     - New feature or behavior
+   * - ``fix``
+     - Bug fix
+   * - ``test``
+     - Adding or updating tests only
+   * - ``docs``
+     - Documentation only
+   * - ``ci``
+     - CI/CD configuration
+   * - ``chore``
+     - Build scripts, tooling, non-production code
+   * - ``refactor``
+     - Code restructure without behavior change
+   * - ``perf``
+     - Performance improvement
+   * - ``release``
+     - Version bump commit before tagging
+
+Rules:
+
+* One concern per commit. If you need "and" in the message, split it into
+  two commits.
+* Keep commits small and focused — a reviewer should be able to understand
+  the full change without switching context.
+* Use the imperative mood: "add" not "added", "fix" not "fixing".
+* No typos in commit messages.
+* The body should explain *why*, not *what* — the diff already shows what changed.
+
+Test Requirements
+-----------------
+
+* Every new feature must include tests.
+* Every bug fix must include a regression test.
+* Tests live in the top-level ``tests/`` directory, mirroring the package structure.
+* Run the full suite before opening a PR: ``make test``
+* Coverage must not drop below 85%: ``make coverage``
+
+Pull Request Checklist
+----------------------
+
+Before opening a PR, verify:
+
+* ``make quality`` passes (black, isort, flake8, mypy)
+* ``make test`` passes with no failures
+* ``make coverage`` shows ≥ 85% total coverage
+* New public API has type annotations
+* ``docs/changelog.rst`` and ``CHANGELOG.md`` updated under *Unreleased*
+* Commit messages follow the conventions above
+* Each commit addresses a single concern
 
 Code of Conduct
 ---------------

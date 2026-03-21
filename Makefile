@@ -8,6 +8,8 @@ help:
 	@echo "  help          Show this help message"
 	@echo ""
 	@echo "Setup & Installation:"
+	@echo "  release       Show release checklist and tag instructions"
+	@echo "  pre-commit    Install and run pre-commit hooks"
 	@echo "  install       Install package"
 	@echo "  install-dev   Install package with development dependencies"
 	@echo "  clean         Clean all build artifacts and cache"
@@ -149,3 +151,20 @@ all: install-dev quality test
 
 check: quality test
 	@echo "✓ All checks passed - ready for CI/CD"
+
+pre-commit:
+	$(PYTHON) -m pip install pre-commit
+	pre-commit install
+	pre-commit run --all-files
+
+release:
+	@echo "Before releasing, ensure:"
+	@echo "  1. All tests pass:      make test"
+	@echo "  2. CHANGELOG.md is updated for the new version"
+	@echo "  3. Tag format is exact semver: vX.Y.Z (stable) or vX.Y.ZbN (pre-release)"
+	@echo ""
+	@echo "Then run:"
+	@echo "  git tag vX.Y.Z"
+	@echo "  git push origin vX.Y.Z"
+	@echo ""
+	@echo "CI will publish to PyPI automatically after the environment gate is approved."

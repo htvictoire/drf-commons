@@ -37,6 +37,20 @@ This project uses `setuptools-scm` and Git tags for versioning and publishing.
 
 This ensures publishing requires approval before deployment.
 
+## Versioning rules
+
+The tag is the source of truth. `setuptools-scm` derives the package version
+directly from the Git tag — the commit message does not affect it.
+
+Rules:
+- Tags must always be exact semver: `vX.Y.Z` for stable, `vX.Y.ZbN` for beta.
+- Double-check the tag before pushing. A typo in the tag (`v1.02` instead of
+  `v1.0.2`) will publish the wrong version to PyPI and cannot be undone.
+- The commit message should clearly reference the version being released, but
+  no strict format is required. `prepare release 1.0.3`, `release v1.0.3`, and
+  `bump to 1.0.3` are all acceptable.
+- Never reuse or move an existing tag. Create a new patch version instead.
+
 ## Release commands
 
 ### TestPyPI (pre-release)

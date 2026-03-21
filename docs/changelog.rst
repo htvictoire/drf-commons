@@ -5,6 +5,29 @@ All notable changes to drf-commons are documented here.
 
 drf-commons follows `Semantic Versioning <https://semver.org/>`_.
 
+A ``CHANGELOG.md`` is also maintained at the project root for GitHub visitors.
+
+Unreleased
+----------
+
+**Added**
+
+* CI test workflow running pytest across Python 3.10–3.12 and Django 4.2–5.1
+  on every push and pull request, with 85% coverage threshold enforced.
+* Coverage and CI status badges added to README.
+* Tests consolidated into top-level ``tests/`` directory for discoverability.
+* ``CHANGELOG.md`` at project root, aligned with this file.
+* ``CONTRIBUTING.md`` at project root with commit conventions and PR checklist.
+* ``make release`` target with pre-release checklist.
+* Versioning rules documented in ``PUBLISHING.md``.
+
+**Changed**
+
+* Removed overreaching maturity claims from README and ``pyproject.toml``
+  description.
+* Replaced outdated manual Twine publishing instructions with a pointer to the
+  automated CI release process.
+
 1.0.2 (Current)
 ----------------
 
