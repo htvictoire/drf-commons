@@ -39,6 +39,16 @@ class IdToDataFieldTests(SerializerTestCase):
         self.assertEqual(field.input_formats, ["id"])
         self.assertEqual(field.output_format, "serialized")
 
+    def test_relation_write_is_forwarded(self):
+        """relation_write kwarg is stored on the field when provided."""
+        rw = {"relation_kind": "fk"}
+        field = IdToDataField(
+            queryset=self.queryset,
+            serializer_class=UserSerializerForTesting,
+            relation_write=rw,
+        )
+        self.assertEqual(field.relation_write, rw)
+
 
 class IdToStrFieldTests(SerializerTestCase):
     """Tests for IdToStrField."""
@@ -53,6 +63,11 @@ class IdToStrFieldTests(SerializerTestCase):
         field = IdToStrField(queryset=self.queryset)
         self.assertEqual(field.input_formats, ["id"])
         self.assertEqual(field.output_format, "str")
+
+    def test_relation_write_is_forwarded(self):
+        rw = {"relation_kind": "fk"}
+        field = IdToStrField(queryset=self.queryset, relation_write=rw)
+        self.assertEqual(field.relation_write, rw)
 
 
 class DataToIdFieldTests(SerializerTestCase):
@@ -69,6 +84,15 @@ class DataToIdFieldTests(SerializerTestCase):
         self.assertEqual(field.input_formats, ["nested", "id"])
         self.assertEqual(field.output_format, "id")
 
+    def test_relation_write_is_forwarded(self):
+        rw = {"write_order": "dependency_first"}
+        field = DataToIdField(
+            queryset=self.queryset,
+            serializer_class=UserSerializerForTesting,
+            relation_write=rw,
+        )
+        self.assertEqual(field.relation_write, rw)
+
 
 class DataToStrFieldTests(SerializerTestCase):
     """Tests for DataToStrField."""
@@ -83,6 +107,15 @@ class DataToStrFieldTests(SerializerTestCase):
         field = DataToStrField(queryset=self.queryset, serializer_class=UserSerializerForTesting)
         self.assertEqual(field.input_formats, ["nested", "id"])
         self.assertEqual(field.output_format, "str")
+
+    def test_relation_write_is_forwarded(self):
+        rw = {"sync_mode": "replace"}
+        field = DataToStrField(
+            queryset=self.queryset,
+            serializer_class=UserSerializerForTesting,
+            relation_write=rw,
+        )
+        self.assertEqual(field.relation_write, rw)
 
 
 class DataToDataFieldTests(SerializerTestCase):
@@ -99,6 +132,15 @@ class DataToDataFieldTests(SerializerTestCase):
         self.assertEqual(field.input_formats, ["nested"])
         self.assertEqual(field.output_format, "serialized")
 
+    def test_relation_write_is_forwarded(self):
+        rw = {"relation_kind": "reverse_fk", "child_link_field": "user"}
+        field = DataToDataField(
+            queryset=self.queryset,
+            serializer_class=UserSerializerForTesting,
+            relation_write=rw,
+        )
+        self.assertEqual(field.relation_write, rw)
+
 
 class StrToDataFieldTests(SerializerTestCase):
     """Tests for StrToDataField."""
@@ -113,6 +155,15 @@ class StrToDataFieldTests(SerializerTestCase):
         field = StrToDataField(queryset=self.queryset, serializer_class=UserSerializerForTesting)
         self.assertEqual(field.input_formats, ["slug"])
         self.assertEqual(field.output_format, "serialized")
+
+    def test_relation_write_is_forwarded(self):
+        rw = {"relation_kind": "m2m", "sync_mode": "sync"}
+        field = StrToDataField(
+            queryset=self.queryset,
+            serializer_class=UserSerializerForTesting,
+            relation_write=rw,
+        )
+        self.assertEqual(field.relation_write, rw)
 
 
 class IdOnlyFieldTests(SerializerTestCase):
@@ -129,6 +180,11 @@ class IdOnlyFieldTests(SerializerTestCase):
         self.assertEqual(field.input_formats, ["id"])
         self.assertEqual(field.output_format, "id")
 
+    def test_relation_write_is_forwarded(self):
+        rw = {"write_order": "root_first"}
+        field = IdOnlyField(queryset=self.queryset, relation_write=rw)
+        self.assertEqual(field.relation_write, rw)
+
 
 class StrOnlyFieldTests(SerializerTestCase):
     """Tests for StrOnlyField."""
@@ -143,3 +199,8 @@ class StrOnlyFieldTests(SerializerTestCase):
         field = StrOnlyField(queryset=self.queryset)
         self.assertEqual(field.input_formats, ["slug"])
         self.assertEqual(field.output_format, "str")
+
+    def test_relation_write_is_forwarded(self):
+        rw = {"relation_kind": "fk"}
+        field = StrOnlyField(queryset=self.queryset, relation_write=rw)
+        self.assertEqual(field.relation_write, rw)

@@ -4,10 +4,10 @@ Tests for content-related mixins.
 
 from unittest.mock import Mock, patch
 
-from django.db import models
+from django.db import connection, models
 from django.utils.text import slugify
 
-from drf_commons.common_tests.base_cases import ModelTestCase
+from drf_commons.common_tests.base_cases import DrfCommonTransactionTestCase, ModelTestCase
 
 from drf_commons.models.content import MetaMixin, SlugMixin, VersionConflictError, VersionMixin
 
@@ -42,8 +42,20 @@ class VersionModelForTesting(VersionMixin):
     name = models.CharField(max_length=100)
 
 
-class SlugMixinTests(ModelTestCase):
+class SlugMixinTests(DrfCommonTransactionTestCase):
     """Tests for SlugMixin."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        with connection.schema_editor() as editor:
+            editor.create_model(SlugModelForTesting)
+
+    @classmethod
+    def tearDownClass(cls):
+        with connection.schema_editor() as editor:
+            editor.delete_model(SlugModelForTesting)
+        super().tearDownClass()
 
     def test_mixin_fields_exist(self):
         """Test that SlugMixin adds slug field."""
@@ -363,8 +375,20 @@ class MetaMixinTests(ModelTestCase):
         self.assertIn("notes", notes_field.help_text.lower())
 
 
-class VersionMixinTests(ModelTestCase):
+class VersionMixinTests(DrfCommonTransactionTestCase):
     """Tests for VersionMixin."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        with connection.schema_editor() as editor:
+            editor.create_model(VersionModelForTesting)
+
+    @classmethod
+    def tearDownClass(cls):
+        with connection.schema_editor() as editor:
+            editor.delete_model(VersionModelForTesting)
+        super().tearDownClass()
 
     def test_mixin_fields_exist(self):
         """Test that VersionMixin adds version fields."""

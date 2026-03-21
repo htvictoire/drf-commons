@@ -70,9 +70,84 @@ class ConfigHelpersTests(DrfCommonTestCase):
 
     def test_validate_transforms_needed_basic(self):
         """Test validate_transforms_needed method exists."""
-        # Test that the method exists and can be called
         config = {"models": {"main": {"direct_columns": {}}}}
         transforms = {}
         result = ConfigHelpers.validate_transforms_needed(config, transforms)
-        # Method should complete without error
         self.assertIsInstance(result, list)
+
+    def test_validate_transforms_needed_transformed_columns_missing(self):
+        """Missing transform functions from transformed_columns are returned."""
+        config = {
+            "models": {
+                "main": {
+                    "transformed_columns": {
+                        "full_name": {"transform": "format_name"},
+                    }
+                }
+            }
+        }
+        result = ConfigHelpers.validate_transforms_needed(config, {})
+        self.assertIn("format_name", result)
+
+    def test_validate_transforms_needed_transformed_columns_provided(self):
+        """No missing transforms when all transformed_columns are provided."""
+        config = {
+            "models": {
+                "main": {
+                    "transformed_columns": {
+                        "full_name": {"transform": "format_name"},
+                    }
+                }
+            }
+        }
+        result = ConfigHelpers.validate_transforms_needed(
+            config, {"format_name": lambda x: x}
+        )
+        self.assertEqual(result, [])
+
+    def test_validate_transforms_needed_computed_fields_missing(self):
+        """Missing generator functions from computed_fields are returned."""
+        config = {
+            "models": {
+                "main": {
+                    "computed_fields": {
+                        "display_name": {"generator": "build_display_name"},
+                    }
+                }
+            }
+        }
+        result = ConfigHelpers.validate_transforms_needed(config, {})
+        self.assertIn("build_display_name", result)
+
+    def test_validate_transforms_needed_computed_fields_provided(self):
+        """No missing transforms when all computed_fields generators are provided."""
+        config = {
+            "models": {
+                "main": {
+                    "computed_fields": {
+                        "display_name": {"generator": "build_display_name"},
+                    }
+                }
+            }
+        }
+        result = ConfigHelpers.validate_transforms_needed(
+            config, {"build_display_name": lambda row: row}
+        )
+        self.assertEqual(result, [])
+
+    def test_validate_transforms_needed_combined_missing(self):
+        """Returns sorted list of all missing transform and generator names."""
+        config = {
+            "models": {
+                "main": {
+                    "transformed_columns": {
+                        "col_a": {"transform": "transform_z"},
+                    },
+                    "computed_fields": {
+                        "col_b": {"generator": "transform_a"},
+                    },
+                }
+            }
+        }
+        result = ConfigHelpers.validate_transforms_needed(config, {})
+        self.assertEqual(result, ["transform_a", "transform_z"])
