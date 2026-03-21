@@ -206,9 +206,6 @@ secrets.json
 *.key
 *.pem
 
-# Migration files
-*/migrations/*.py
-!*/migrations/__init__.py
 
 # Local configuration overrides
 local_settings.py

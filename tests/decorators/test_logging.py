@@ -11,7 +11,15 @@ from django.test import RequestFactory
 from drf_commons.common_tests.base_cases import DrfCommonTestCase
 from drf_commons.debug.core.categories import Categories
 
-from drf_commons.decorators.logging import api_request_logger, log_exceptions, log_function_call
+from drf_commons.decorators.logging import (
+    _normalize_key_set,
+    _redact_json_payload,
+    _sanitize_headers,
+    _sanitize_request_body,
+    api_request_logger,
+    log_exceptions,
+    log_function_call,
+)
 
 
 class ApiRequestLoggerTests(DrfCommonTestCase):
@@ -201,6 +209,106 @@ class ApiRequestLoggerTests(DrfCommonTestCase):
 
         mock_logger.debug.assert_any_call("Headers: {'X-Trace': 'custom'}")
         mock_logger.debug.assert_any_call("Request body: <custom-body>")
+
+    @patch("drf_commons.decorators.logging.Categories")
+    def test_api_logging_supports_tuple_sanitizer_hook_result(self, mock_categories):
+        mock_logger = Mock()
+        mock_categories.get_logger.return_value = mock_logger
+
+        def sanitizer_hook(request, headers, body):
+            return ({"X-Trace": "tuple"}, "<tuple-body>")
+
+        @api_request_logger(
+            log_headers=True, log_body=True, sanitizer_hook=sanitizer_hook
+        )
+        def test_view(request):
+            return HttpResponse("OK")
+
+        request = self.factory.post(
+            "/test-endpoint/",
+            data=json.dumps({"password": "secret"}),
+            content_type="application/json",
+            HTTP_ACCEPT="application/json",
+        )
+        test_view(request)
+
+        mock_logger.debug.assert_any_call("Headers: {'X-Trace': 'tuple'}")
+        mock_logger.debug.assert_any_call("Request body: <tuple-body>")
+
+    @patch("drf_commons.decorators.logging.Categories")
+    def test_api_logging_logs_sanitizer_hook_failures(self, mock_categories):
+        mock_logger = Mock()
+        mock_categories.get_logger.return_value = mock_logger
+
+        def sanitizer_hook(request, headers, body):
+            raise RuntimeError("sanitizer failed")
+
+        @api_request_logger(
+            log_headers=True, log_body=True, sanitizer_hook=sanitizer_hook
+        )
+        def test_view(request):
+            return HttpResponse("OK")
+
+        request = self.factory.post(
+            "/test-endpoint/",
+            data=json.dumps({"password": "secret"}),
+            content_type="application/json",
+            HTTP_ACCEPT="application/json",
+        )
+        test_view(request)
+
+        mock_logger.exception.assert_called_once_with(
+            "api_request_logger sanitizer_hook failed"
+        )
+
+
+class LoggingSanitizerHelperTests(DrfCommonTestCase):
+    def test_normalize_key_set_ignores_blank_values(self):
+        self.assertEqual(
+            _normalize_key_set([" Authorization ", "", "X-Api-Key "]),
+            {"authorization", "x-api-key"},
+        )
+
+    def test_redact_json_payload_handles_nested_lists(self):
+        payload = [{"token": "secret"}, {"nested": [{"password": "hidden"}]}]
+
+        redacted = _redact_json_payload(payload, {"token", "password"})
+
+        self.assertEqual(
+            redacted,
+            [{"token": "***REDACTED***"}, {"nested": [{"password": "***REDACTED***"}]}],
+        )
+
+    def test_sanitize_headers_respects_allowlist_and_redaction(self):
+        sanitized = _sanitize_headers(
+            {
+                "Authorization": "Bearer secret",
+                "Accept": "application/json",
+                "X-Trace": "trace-id",
+            },
+            header_allowlist=["Authorization", "X-Trace"],
+        )
+
+        self.assertEqual(
+            sanitized,
+            {
+                "Authorization": "***REDACTED***",
+                "X-Trace": "trace-id",
+            },
+        )
+
+    def test_sanitize_request_body_handles_unavailable_empty_and_non_json_payloads(self):
+        request_without_body = object()
+        self.assertEqual(_sanitize_request_body(request_without_body), "<body unavailable>")
+
+        empty_request = Mock(body=b"")
+        self.assertEqual(_sanitize_request_body(empty_request), "")
+
+        text_request = Mock(body="plain text payload")
+        self.assertEqual(
+            _sanitize_request_body(text_request),
+            "<non-json payload redacted>",
+        )
 
 
 class LogFunctionCallTests(DrfCommonTestCase):

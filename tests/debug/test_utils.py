@@ -2,7 +2,8 @@
 Tests for debug utility functions.
 """
 
-from unittest.mock import Mock, patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory
@@ -11,6 +12,7 @@ from drf_commons.common_tests.base_cases import DrfCommonTestCase
 from drf_commons.common_tests.factories import UserFactory
 from drf_commons.common_tests.utils import capture_logs, override_debug_settings
 
+from drf_commons.debug.core.categories import Categories
 from drf_commons.debug.utils import (
     analyze_queryset,
     capture_request_data,
@@ -95,6 +97,26 @@ class TestPrettyPrintDict(DrfCommonTestCase):
             pretty_print_dict(test_obj, category="errors")
             mock_pprint.assert_called_once_with({"attr": "value"}, indent=2, width=120)
 
+    @patch("builtins.print")
+    @patch("pprint.pprint")
+    def test_pretty_print_plain_object_without_dict(self, mock_pprint, mock_print):
+        with override_debug_settings(
+            DEBUG=True, COMMON_DEBUG_ENABLED_LOG_CATEGORIES=["errors"]
+        ):
+            pretty_print_dict(123, category="errors")
+
+            mock_pprint.assert_called_once_with(123, indent=2, width=120)
+
+    @patch("builtins.print")
+    @patch("pprint.pprint", side_effect=RuntimeError("boom"))
+    def test_pretty_print_falls_back_to_string_on_error(self, mock_pprint, mock_print):
+        with override_debug_settings(
+            DEBUG=True, COMMON_DEBUG_ENABLED_LOG_CATEGORIES=["errors"]
+        ):
+            pretty_print_dict(123, category="errors")
+
+            mock_print.assert_called_once_with("123")
+
 
 class TestDebugSqlQueries(DrfCommonTestCase):
     """Test debug_sql_queries function."""
@@ -128,6 +150,18 @@ class TestDebugSqlQueries(DrfCommonTestCase):
         ):
             debug_sql_queries()
             mock_print.assert_not_called()
+
+    @patch("builtins.print")
+    @patch("drf_commons.debug.utils.connection")
+    def test_debug_sql_queries_can_reset_query_log(self, mock_connection, mock_print):
+        with override_debug_settings(
+            DEBUG=True, COMMON_DEBUG_ENABLED_LOG_CATEGORIES=["database"]
+        ):
+            mock_connection.queries = [{"sql": "SELECT 1", "time": "0.1000"}]
+
+            debug_sql_queries(reset=True)
+
+            mock_connection.queries_log.clear.assert_called_once_with()
 
 
 class TestCaptureRequestData(DrfCommonTestCase):
@@ -226,6 +260,56 @@ class TestLogModelChanges(DrfCommonTestCase):
                 expected = f"DELETE: User {self.user.pk} by system"
                 self.assertIn(expected, log_output.getvalue())
 
+    @patch("drf_commons.debug.utils.Categories.get_logger")
+    def test_log_model_changes_logs_field_deltas_for_updates(self, mock_get_logger):
+        logger = Mock()
+        mock_get_logger.return_value = logger
+        
+        class TrackedUser:
+            def __init__(self):
+                self.pk = 1
+                self._state = object()
+                self._original_values = {
+                    "email": "old@example.com",
+                    "username": "same",
+                }
+                self.email = "new@example.com"
+                self.username = "same"
+
+        instance = TrackedUser()
+        instance._meta = SimpleNamespace(
+            fields=[
+                SimpleNamespace(name="email"),
+                SimpleNamespace(name="username"),
+            ]
+        )
+
+        log_model_changes(instance, action="update", user="auditor")
+
+        logger.info.assert_called_once_with("UPDATE: TrackedUser 1 by auditor")
+        logger.debug.assert_called_once()
+        self.assertIn('"email": {"old": "old@example.com", "new": "new@example.com"}', logger.debug.call_args.args[0])
+
+    @patch("drf_commons.debug.utils.Categories.get_logger")
+    def test_log_model_changes_warns_when_change_capture_fails(self, mock_get_logger):
+        logger = Mock()
+        mock_get_logger.return_value = logger
+
+        class BrokenInstance:
+            pk = 5
+            _state = object()
+            _original_values = {"name": "old"}
+            _meta = SimpleNamespace(fields=[SimpleNamespace(name="name")])
+
+            @property
+            def name(self):
+                raise RuntimeError("broken attribute")
+
+        log_model_changes(BrokenInstance(), action="update", user="auditor")
+
+        logger.warning.assert_called_once()
+        self.assertIn("Could not log field changes", logger.warning.call_args.args[0])
+
 
 class TestDebugCacheOperations(DrfCommonTestCase):
     """Test debug_cache_operations function."""
@@ -251,6 +335,18 @@ class TestDebugCacheOperations(DrfCommonTestCase):
 
                 expected = "Cache GET: user:456 - MISS"
                 self.assertIn(expected, log_output.getvalue())
+
+    def test_debug_cache_non_get_reports_boolean_success(self):
+        with override_debug_settings(
+            DEBUG=True, COMMON_DEBUG_ENABLED_LOG_CATEGORIES=["cache"]
+        ):
+            with capture_logs("cache.operations") as log_output:
+                debug_cache_operations("user:789", "set", result=False)
+
+                self.assertIn(
+                    "Cache SET: user:789 - Success: False",
+                    log_output.getvalue(),
+                )
 
 
 class TestProfileFunction(DrfCommonTestCase):
@@ -283,6 +379,23 @@ class TestProfileFunction(DrfCommonTestCase):
 
             self.assertEqual(result, "result")
             self.assertIsNone(profile_output)
+
+    def test_profile_function_returns_fallback_message_when_profiling_fails(self):
+        with override_debug_settings(
+            DEBUG=True, COMMON_DEBUG_ENABLED_LOG_CATEGORIES=["performance"]
+        ):
+            state = {"calls": 0}
+
+            def flaky_func():
+                state["calls"] += 1
+                if state["calls"] == 1:
+                    raise RuntimeError("boom")
+                return "recovered"
+
+            result, profile_output = profile_function(flaky_func)
+
+            self.assertEqual(result, "recovered")
+            self.assertEqual(profile_output, "Profiling failed: boom")
 
 
 class TestMemoryUsage(DrfCommonTestCase):
@@ -344,6 +457,34 @@ class TestAnalyzeQueryset(DrfCommonTestCase):
                 analyze_queryset(queryset, "Test Users")
 
                 self.assertIn("Analyzing Test Users:", log_output.getvalue())
+
+    @patch("drf_commons.debug.utils.Categories.get_logger", return_value=Categories._null_logger)
+    def test_analyze_queryset_skips_sampling_for_null_logger(self, mock_get_logger):
+        queryset = MagicMock()
+        queryset.query = "SELECT 1"
+        queryset.count.return_value = 0
+
+        analyze_queryset(queryset, "Silent QuerySet")
+
+        queryset.__getitem__.assert_not_called()
+
+    @patch("drf_commons.debug.utils.Categories.get_logger")
+    def test_analyze_queryset_warns_when_sampling_fails(self, mock_get_logger):
+        logger = Mock()
+        mock_get_logger.return_value = logger
+
+        class BrokenQuerySet:
+            query = "SELECT 1"
+
+            def count(self):
+                return 1
+
+            def __getitem__(self, item):
+                raise RuntimeError("cannot slice")
+
+        analyze_queryset(BrokenQuerySet(), "Broken QuerySet")
+
+        logger.warning.assert_called_once_with("Could not fetch sample items: cannot slice")
 
 
 class TestDebugContextProcessor(DrfCommonTestCase):

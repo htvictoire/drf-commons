@@ -5,12 +5,13 @@ Tests core mixin functionality that provides the foundation
 for all configurable related field functionality.
 """
 
+from django.core.exceptions import FieldError
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
 from rest_framework import serializers
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from drf_commons.common_tests.base_cases import SerializerTestCase
 from drf_commons.common_tests.factories import UserFactory
@@ -271,6 +272,158 @@ class ConfigurableRelatedFieldMixinTests(SerializerTestCase):
         )
         with self.assertRaises(serializers.ValidationError):
             field._handle_slug_input("any")
+
+    def test_to_representation_falls_back_to_serializer_when_output_format_unknown(self):
+        field = create_serialized_mock_field(queryset=self.queryset)
+        field.output_format = "unknown"
+
+        result = field.to_representation(self.user)
+
+        self.assertEqual(result["id"], self.user.pk)
+
+    def test_to_representation_falls_back_to_string_without_serializer(self):
+        field = create_mock_field(queryset=self.queryset)
+        field.output_format = "unknown"
+        field.serializer_class = None
+
+        result = field.to_representation(self.user)
+
+        self.assertEqual(result, str(self.user))
+
+    def test_to_internal_value_with_slug_only_string(self):
+        group = Group.objects.create(name="engineering")
+        field = create_mock_field(
+            queryset=Group.objects.all(),
+            input_formats=["slug"],
+            slug_lookup_field="name",
+        )
+
+        result = field.to_internal_value("engineering")
+
+        self.assertEqual(result, group)
+
+    def test_to_internal_value_with_id_only_string(self):
+        group = Group.objects.create(name="ops")
+        field = create_mock_field(
+            queryset=Group.objects.all(),
+            input_formats=["id"],
+        )
+
+        result = field.to_internal_value(str(group.pk))
+
+        self.assertEqual(result, group)
+
+    def test_to_internal_value_returns_object_when_object_input_enabled(self):
+        field = create_mock_field(queryset=self.queryset, input_formats=["object"])
+
+        result = field.to_internal_value(self.user)
+
+        self.assertEqual(result, self.user)
+
+    def test_to_internal_value_rejects_incorrect_type(self):
+        field = create_mock_field(queryset=self.queryset, input_formats=["id"])
+        field.error_messages = {"incorrect_type": "Incorrect type."}
+
+        with self.assertRaises(Exception):
+            field.to_internal_value(["bad-type"])
+
+    def test_string_id_or_slug_reraises_first_validation_error_when_both_fail(self):
+        field = create_mock_field(
+            queryset=Group.objects.all(),
+            input_formats=["id", "slug"],
+            slug_lookup_field="name",
+        )
+
+        first_error = serializers.ValidationError("id lookup failed")
+        second_error = serializers.ValidationError("slug lookup failed")
+
+        with patch.object(
+            field,
+            "_get_string_resolution_handlers",
+            return_value=(MagicMock(side_effect=first_error), MagicMock(side_effect=second_error)),
+        ):
+            with self.assertRaises(serializers.ValidationError) as exc:
+                field._handle_string_id_or_slug_input("missing")
+
+        self.assertEqual(exc.exception.detail, first_error.detail)
+
+    def test_handle_nested_input_rejects_when_nested_creation_disabled(self):
+        field = create_mock_field(
+            queryset=self.queryset,
+            input_formats=["nested"],
+            create_if_nested=False,
+        )
+
+        with self.assertRaises(Exception):
+            field._handle_nested_input({"username": "nested-user"})
+
+    def test_handle_nested_input_continues_when_existing_object_missing(self):
+        field = create_mock_field(
+            queryset=self.queryset,
+            input_formats=["nested"],
+            create_if_nested=True,
+            update_if_exists=True,
+            lookup_field="username",
+        )
+        serializer = Mock()
+        serializer.is_valid.return_value = True
+        field.serializer_class = Mock(return_value=serializer)
+        field.queryset.get = Mock(side_effect=field.queryset.model.DoesNotExist)
+
+        result = field._handle_nested_input({"username": "missing-user"})
+
+        self.assertIsInstance(result, DeferredRelatedOperation)
+        field.serializer_class.assert_called_once_with(
+            None,
+            data={"username": "missing-user"},
+            partial=False,
+            context=field.context,
+        )
+
+    def test_handle_nested_input_raises_validation_error_for_invalid_serializer(self):
+        field = create_mock_field(
+            queryset=self.queryset,
+            input_formats=["nested"],
+            create_if_nested=True,
+            lookup_field="username",
+        )
+        serializer = Mock()
+        serializer.is_valid.return_value = False
+        serializer.errors = {"username": ["required"]}
+        field.serializer_class = Mock(return_value=serializer)
+
+        with self.assertRaises(serializers.ValidationError) as exc:
+            field._handle_nested_input({"username": "invalid"})
+
+        self.assertEqual(exc.exception.detail, {"username": ["required"]})
+
+    def test_handle_id_input_invalid_lookup_field_raises_validation_error(self):
+        field = create_mock_field(queryset=self.queryset, input_formats=["id"])
+        field.queryset.get = Mock(side_effect=FieldError("bad field"))
+
+        with self.assertRaises(serializers.ValidationError) as exc:
+            field._handle_id_input(self.user.pk)
+
+        self.assertIn("Invalid lookup_field", str(exc.exception))
+
+    def test_handle_id_input_invalid_type_raises_field_error(self):
+        field = create_mock_field(queryset=self.queryset, input_formats=["id"])
+        field.error_messages = {"incorrect_type": "Incorrect type."}
+        field.queryset.get = Mock(side_effect=ValueError("invalid"))
+
+        with self.assertRaises(Exception):
+            field._handle_id_input("not-an-id")
+
+    def test_handle_slug_input_missing_value_raises_does_not_exist(self):
+        field = create_mock_field(
+            queryset=self.queryset,
+            input_formats=["slug"],
+            slug_lookup_field="username",
+        )
+        field.error_messages = {"does_not_exist": "Object does not exist."}
+
+        with self.assertRaises(Exception):
+            field._handle_slug_input("missing-user")
 
 
 class RelatedFieldRelationWriteMixinTests(SerializerTestCase):
