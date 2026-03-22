@@ -7,8 +7,8 @@ drf-commons follows `Semantic Versioning <https://semver.org/>`_.
 
 A ``CHANGELOG.md`` is also maintained at the project root for GitHub visitors.
 
-1.0.3b1
--------
+1.0.3
+-----
 
 **Added**
 
@@ -28,8 +28,8 @@ A ``CHANGELOG.md`` is also maintained at the project root for GitHub visitors.
 * Replaced outdated manual Twine publishing instructions with a pointer to the
   automated CI release process.
 
-1.0.2 (Current)
-----------------
+1.0.2
+-----
 
 *Maintenance release*
 
