@@ -1,10 +1,12 @@
 """
-DRF Commons - Django REST Framework Common Utilities
+DRF Commons - Django REST Framework utilities and base classes.
 
-This package provides common utilities and extensions for Django REST Framework.
-Register only the umbrella application in ``INSTALLED_APPS``.
+Provides composable mixins, standardised responses, bulk operations,
+import/export services, and async-safe current user propagation for
+Django REST Framework projects.
 
-Usage:
+Register the umbrella application in ``INSTALLED_APPS``:
+
     INSTALLED_APPS = [
         'drf_commons',
     ]
@@ -14,3 +16,4 @@ from importlib.metadata import version
 
 __version__ = version("drf-commons")
 __author__ = "Victoire HABAMUNGU"
+__email__ = "contact@htvictoire.me"
