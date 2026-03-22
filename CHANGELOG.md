@@ -12,6 +12,10 @@ The full changelog is also available in the
 
 ## [Unreleased]
 
+---
+
+## [1.0.3b1] - 2026-03-21
+
 ### Added
 
 - CI test workflow (`tests.yml`) running pytest across Python 3.10–3.12 and
@@ -94,6 +98,7 @@ The full changelog is also available in the
 
 ---
 
-[Unreleased]: https://github.com/htvictoire/drf-commons/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/htvictoire/drf-commons/compare/v1.0.3b1...HEAD
+[1.0.3b1]: https://github.com/htvictoire/drf-commons/compare/v1.0.2...v1.0.3b1
 [1.0.2]: https://github.com/htvictoire/drf-commons/compare/v1.0.0...v1.0.2
 [1.0.0]: https://github.com/htvictoire/drf-commons/releases/tag/v1.0.0

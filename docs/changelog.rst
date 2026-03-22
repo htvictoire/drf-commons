@@ -7,8 +7,8 @@ drf-commons follows `Semantic Versioning <https://semver.org/>`_.
 
 A ``CHANGELOG.md`` is also maintained at the project root for GitHub visitors.
 
-Unreleased
-----------
+1.0.3b1
+-------
 
 **Added**
 
