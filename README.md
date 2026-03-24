@@ -9,6 +9,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/drf-commons.svg)](https://pypi.org/project/drf-commons/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/drf-commons.svg)](https://pypi.org/project/drf-commons/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Django Packages](https://img.shields.io/badge/Django%20Packages-drf--commons-8c3c26.svg)](https://djangopackages.org/packages/p/drf-commons/)
 
 **drf-commons** is a utility library for Django REST Framework that eliminates architectural repetition, enforces API consistency, and provides composable abstractions for building scalable, maintainable REST APIs.
 
