@@ -16,6 +16,10 @@ class VersionConflictError(Exception):
     """Raised when a versioned model update conflicts with a concurrent write."""
 
 
+class SlugGenerationError(Exception):
+    """Raised when a unique slug cannot be generated within the retry limit."""
+
+
 class SlugMixin(models.Model):
     """
     Mixin that provides automatic slug generation functionality.
@@ -55,15 +59,27 @@ class SlugMixin(models.Model):
 
     def generate_slug(self) -> str:
         """
-        Generate the base deterministic slug candidate.
+        Generate a unique slug, retrying with numeric suffixes on conflict.
 
         Returns:
-            Base slug candidate string
+            Unique slug string
+
+        Raises:
+            SlugGenerationError: If a unique slug cannot be found within the retry limit
         """
         base_slug = slugify(self.get_slug_source())
         if not base_slug:
             base_slug = "item"
-        return self._build_slug_candidate(base_slug, 0)
+
+        for attempt in range(self.slug_conflict_retry_limit):
+            candidate = self._build_slug_candidate(base_slug, attempt)
+            if not self.__class__._default_manager.filter(slug=candidate).exclude(pk=self.pk).exists():
+                return candidate
+
+        raise SlugGenerationError(
+            f"Could not generate a unique slug for {self.__class__.__name__} "
+            f"after {self.slug_conflict_retry_limit} attempts."
+        )
 
     def _build_slug_candidate(self, base_slug: str, attempt: int) -> str:
         """Build deterministic slug candidate for retry attempts."""

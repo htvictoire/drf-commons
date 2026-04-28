@@ -9,7 +9,7 @@ from django.utils.text import slugify
 
 from drf_commons.common_tests.base_cases import DrfCommonTransactionTestCase, ModelTestCase
 
-from drf_commons.models.content import MetaMixin, SlugMixin, VersionConflictError, VersionMixin
+from drf_commons.models.content import MetaMixin, SlugGenerationError, SlugMixin, VersionConflictError, VersionMixin
 
 
 class SlugModelForTesting(SlugMixin):
@@ -113,7 +113,19 @@ class SlugMixinTests(DrfCommonTransactionTestCase):
         model = SlugModelForTesting(title="Test Title")
         slug = model.generate_slug()
 
-        self.assertEqual(slug, "test-title")
+        self.assertEqual(slug, "test-title-2")
+
+    def test_generate_slug_raises_when_retry_limit_exhausted(self):
+        """Test generate_slug raises SlugGenerationError when all candidates are taken."""
+        limit = SlugModelForTesting.slug_conflict_retry_limit
+        for i in range(limit):
+            suffix = "" if i == 0 else f"-{i}"
+            SlugModelForTesting.objects.create(title=f"Filler {i}", slug=f"test-title{suffix}")
+
+        model = SlugModelForTesting(title="Test Title")
+
+        with self.assertRaises(SlugGenerationError):
+            model.generate_slug()
 
     def test_generate_slug_excludes_current_instance(self):
         """Test generate_slug excludes current instance from conflict check."""
