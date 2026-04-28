@@ -1,4 +1,4 @@
-.PHONY: help install install-dev install-test install-testing clean lint format sort-imports type-check quality test test-verbose coverage clean-build clean-pyc clean-test docs docs-clean all check
+.PHONY: help init install install-dev install-test install-testing clean lint format sort-imports type-check quality test test-verbose coverage clean-build clean-pyc clean-test docs docs-clean all check
 
 PYTHON ?= .venv/bin/python
 
@@ -38,6 +38,12 @@ help:
 	@echo "  check         Run quality checks and tests (CI-friendly)"
 
 # Setup & Installation
+init:
+	python3 -m venv .venv
+	.venv/bin/pip install --upgrade pip
+	.venv/bin/pip install -e .[dev,test,build,import,export,debug]
+	@echo "Virtual environment initialised at .venv/"
+
 install:
 	$(PYTHON) -m pip install -e .
 

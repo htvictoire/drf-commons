@@ -28,6 +28,7 @@ from .mixins import JsonModelMixin
 # Content-related mixins
 from .content import (
     MetaMixin,
+    SlugGenerationError,
     SlugMixin,
     VersionMixin,
 )
@@ -51,6 +52,7 @@ __all__ = [
     "SoftDeleteMixin",
     "JsonModelMixin",
     # Content mixins
+    "SlugGenerationError",
     "SlugMixin",
     "MetaMixin",
     "VersionMixin",
